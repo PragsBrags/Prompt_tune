@@ -1,0 +1,42 @@
+run:
+  mode: evaluate                  # evaluate | train
+  seed: 42
+  output_dir: artifacts
+  run_name: baseline_zero_shot
+
+model:
+  name: Qwen/Qwen3.5-4B
+  quantization:
+    enabled: true
+    load_in_4bit: true
+  thinking: False
+
+data:
+  dataset_name: facebook/flores
+  language_pair: eng_Latn-npi_Deva
+  split: dev
+  source_column: sentence_eng_Latn
+  target_column: sentence_npi_Deva
+  max_samples: 2                  # null = entire split
+
+prompt:
+  strategy: zero_shot             # zero_shot | few_shot
+  system_instruction: >
+    You are an English-to-Nepali translator. Return only the Nepali translation,
+    without explanation.
+  user_template: >
+    Translate the following English sentence into Nepali.
+
+    {source}
+
+training:
+  enabled: false
+  method: qlora
+  train_split: train
+  validation_split: validation
+  output_dir: outputs/adapter
+  learning_rate: 0.0002
+  num_train_epochs: 3
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
