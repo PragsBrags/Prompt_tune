@@ -1,7 +1,7 @@
 run:
   mode: evaluate                  # evaluate | train
   seed: 42
-  output_dir: artifacts
+  output_dir: output/gguf_model
   run_name: baseline_zero_shot
 
 model:
@@ -10,6 +10,7 @@ model:
     enabled: true
     load_in_4bit: true
   thinking: False
+  max_seq_length: 512
 
 data:
   dataset_name: facebook/flores
@@ -32,11 +33,15 @@ prompt:
 training:
   enabled: false
   method: qlora
-  train_split: train
-  validation_split: validation
   output_dir: outputs/adapter
   learning_rate: 0.0002
   num_train_epochs: 3
   lora_rank: 16
   lora_alpha: 32
   lora_dropout: 0.05
+  batch_size: 2
+  gradient_accumulation_steps: 4
+  warmup_steps: 10
+  max_steps: 60
+  logging_steps: 1
+  optim: adamw_8bit

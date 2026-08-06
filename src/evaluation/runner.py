@@ -1,13 +1,18 @@
 from inference.generator import translate
 from evaluation.metrics import compute_translation_metrics
-from prompting_proto.src.prompting.shot_prompts import build_messages_zero, build_messages_3
+from data.data_loader import load_translation_data
+from inference.model_loader import load_model
+from prompting.shot_prompts import build_messages_zero, build_messages_3
 
 
-def run_evaluation(cfg,dataset,tokenizer,model):
+def run_evaluation(cfg):
 
     prediction = []
     references = []
     messages = None
+
+    dataset = load_translation_data(cfg.data)
+    tokenizer, model = load_model(cfg.model)
 
     for i in range(cfg.data.max_samples):
         sample = dataset[i]

@@ -32,7 +32,7 @@ def load_model(cfg_model):
 def train_model(cfg):
     model, tokenizer = load_model(cfg.model)
     data = load_translation_data(cfg.data)
-    dataset = train_message(data, tokenizer))
+    dataset = train_message(cfg.data, data, tokenizer)
 
     trainer = SFTTrainer(
         model=model,
@@ -54,3 +54,6 @@ def train_model(cfg):
     )
 
     trainer.train()
+
+    return model, tokenizer
+
