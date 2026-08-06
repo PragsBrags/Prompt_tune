@@ -1,11 +1,11 @@
 import torch
 
-def translate(model,tokenizer,message,generation_cfg):
+def translate(model,tokenizer,message,cfg_model):
     prompt = tokenizer.apply_chat_template(
         message,
         tokenize=False,
         add_generation_prompt=True,
-        enable_thinking=generation_cfg.thinking,
+        enable_thinking=cfg_model.thinking,
     )
     
     inputs = tokenizer(

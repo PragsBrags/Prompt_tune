@@ -16,13 +16,13 @@ def load_model(cfg_model):
 
     model = FastLanguageModel.get_peft_model(
         model,
-        r=32,
+        r=cfg_model.lora_rank,
         target_modules=[
             'q_proj', 'k_proj', 'v_proj', 'o_proj',
             'gate_proj', 'up_proj', 'down_proj',
         ],  # which layers to inject LoRA into
-        lora_alpha=32*2,
-        lora_dropout=0.05,
+        lora_alpha=cfg_model.lora_alpha,
+        lora_dropout=cfg_model.lora_dropout,
         bias="none",
         use_gradient_checkpointing='unsloth',
     )
@@ -37,10 +37,10 @@ def train_model(cfg):
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
-        tokenizer=tokenizer,
-        dataset_text_field='text',
-        max_seq_length=cfg.model.max_seq_length,
+        processing_class=tokenizer,
         args=SFTConfig(
+            dataset_text_field='text',
+            max_length=cfg.model.max_seq_length,
             per_device_train_batch_size=cfg.training.batch_size,
             gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
             warmup_steps=cfg.training.warmup_steps,

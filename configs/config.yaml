@@ -31,7 +31,6 @@ prompt:
     {source}
 
 training:
-  enabled: false
   method: qlora
   output_dir: outputs/adapter
   learning_rate: 0.0002
