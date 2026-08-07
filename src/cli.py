@@ -4,12 +4,14 @@ from training.save import save_model
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
+from transformers import set_seed
 
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
     if cfg.run.mode == "evaluate":
+        set_seed(cfg.run.seed, deterministic=True)
         results = run_evaluation(cfg)
         print(results)
 

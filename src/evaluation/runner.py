@@ -11,7 +11,7 @@ def run_evaluation(cfg):
     references = []
     messages = None
 
-    dataset = load_translation_data(cfg.data)
+    dataset = load_translation_data(cfg.data, cfg.run.seed)
     tokenizer, model = load_model(cfg.model)
 
     for i in range(cfg.data.max_samples):

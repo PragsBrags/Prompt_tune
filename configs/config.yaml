@@ -16,9 +16,12 @@ data:
   dataset_name: facebook/flores
   language_pair: eng_Latn-npi_Deva
   split: dev
+  revision: main
+  shuffle: true
   source_column: sentence_eng_Latn
   target_column: sentence_npi_Deva
   max_samples: 2                  # null = entire split
+
 
 prompt:
   strategy: zero_shot             # zero_shot | few_shot

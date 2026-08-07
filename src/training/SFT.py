@@ -31,7 +31,7 @@ def load_model(cfg_model):
 
 def train_model(cfg):
     model, tokenizer = load_model(cfg.model)
-    data = load_translation_data(cfg.data)
+    data = load_translation_data(cfg.data, cfg.run.seed)
     dataset = train_message(cfg.data, data, tokenizer)
 
     trainer = SFTTrainer(
@@ -40,6 +40,8 @@ def train_model(cfg):
         processing_class=tokenizer,
         args=SFTConfig(
             dataset_text_field='text',
+            seed=cfg.run.seed,
+            data_seed=cfg.run.seed,
             max_length=cfg.model.max_seq_length,
             per_device_train_batch_size=cfg.training.batch_size,
             gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
