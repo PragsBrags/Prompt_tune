@@ -1,8 +1,14 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoProcessor, AutoModelForMultimodalLM, BitsAndBytesConfig
 import torch
 
 def load_model(model_cfg):
-
+    model_Name = None
+    
+    if model_cfg.source == "base":
+        model_Name = model_cfg.name
+    elif model_cfg.source == "merged":
+        model_Name = model_cfg.model_path
+    
     quantization_config = None
     
     if model_cfg.quantization.enabled:
@@ -14,8 +20,8 @@ def load_model(model_cfg):
         llm_int8_enable_fp32_cpu_offload=True,
         )
 
-    tokenizer = AutoTokenizer.from_pretrained(model_cfg.name)
-    model = AutoModelForCausalLM.from_pretrained(
+    tokenizer = AutoProcessor.from_pretrained(model_Name)
+    model = AutoModelForMultimodalLM.from_pretrained(
     model_cfg.name,
     quantization_config=quantization_config,
     torch_dtype="auto",

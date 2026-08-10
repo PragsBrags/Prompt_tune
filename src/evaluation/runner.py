@@ -14,7 +14,7 @@ def run_evaluation(cfg):
     dataset = load_translation_data(cfg.data, cfg.run.seed)
     tokenizer, model = load_model(cfg.model)
 
-    for i in range(cfg.data.max_samples):
+    for i in range(len(dataset)):
         sample = dataset[i]
         english = sample[cfg.data.source_column]
         target = sample[cfg.data.target_column]

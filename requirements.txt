@@ -6,3 +6,5 @@ sacrebleu
 torch
 bitsandbytes
 hydra-core
+unsloth
+trl

@@ -16,6 +16,7 @@ def main(cfg: DictConfig):
         print(results)
 
     if cfg.run.mode == "train":
+        set_seed(cfg.run.seed, deterministic=True)
         model, tokenizer = train_model(cfg)
         save_model(model, tokenizer, cfg.run)
 
