@@ -3,6 +3,10 @@ accelerate
 datasets
 evaluate
 sacrebleu
+ntlk
+unbabel-comet
+bert-score
 torch
 bitsandbytes
 hydra-core
+requests
