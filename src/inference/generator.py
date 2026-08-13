@@ -1,28 +1,16 @@
-import torch
+import requests
 
-def translate(model,tokenizer,message,generation_cfg):
-    prompt = tokenizer.apply_chat_template(
-        message,
-        tokenize=False,
-        add_generation_prompt=True,
-        enable_thinking=generation_cfg.thinking,
+OLLAMA_URL = "http://localhost:11434"
+
+def translate(model_name, messages):
+    response = requests.post(
+        f"{OLLAMA_URL}/api/chat",
+        json={
+            "model": model_name,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0, "num_predict": 128},
+        },
     )
-    
-    inputs = tokenizer(
-        prompt,
-        return_tensors='pt'
-        ).to(model.device)
-    
-    with torch.no_grad():
-        output = model.generate(
-            **inputs,
-            max_new_tokens=128,
-            do_sample=False,
-        )
-    
-    generated = tokenizer.decode(
-        output[0][inputs.input_ids.shape[1]:],
-        skip_special_tokens=True
-    ).strip()
-
-    return generated
+    response.raise_for_status()
+    return response.json()["message"]["content"].strip()

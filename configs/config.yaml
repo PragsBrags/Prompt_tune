@@ -5,19 +5,19 @@ run:
   run_name: baseline_zero_shot
 
 model:
-  name: Qwen/Qwen3.5-4B
-  quantization:
-    enabled: true
-    load_in_4bit: true
-  thinking: False
+  name: qwen2.5:7b                # ollama tag, e.g. model.name=llama3.1:8b or model.name=gemma4:4b
 
 data:
-  dataset_name: facebook/flores
-  language_pair: eng_Latn-npi_Deva
-  split: dev
-  source_column: sentence_eng_Latn
-  target_column: sentence_npi_Deva
-  max_samples: 2                  # null = entire split
+  dataset_name: ai4bharat/IN22-Gen
+  config_name: default
+  split: test
+  source_column: eng_Latn
+  target_languages:
+    - column: mai_Deva
+      name: Maithili
+    - column: npi_Deva
+      name: Nepali
+  max_samples: 50
 
 prompt:
   strategy: zero_shot             # zero_shot | few_shot

@@ -1,30 +1,42 @@
 from inference.generator import translate
-from evaluation.metrics import compute_translation_metrics
+from evaluation.metrics import compute_all_metrics
 from prompting.shot_prompts import build_messages_zero, build_messages_3
 
 
-def run_evaluation(cfg,dataset,tokenizer,model):
+def run_evaluation(cfg, dataset, model_name):
 
-    prediction = []
-    references = []
-    messages = None
+    all_results = {}
 
-    for i in range(cfg.data.max_samples):
-        sample = dataset[i]
-        english = sample[cfg.data.source_column]
-        target = sample[cfg.data.target_column]
+    for target in cfg.data.target_languages:
+        sources = []
+        predictions = []
+        references = []
 
-        if cfg.prompt.strategy == "zero_shot":
-            messages = build_messages_zero(english)
+        for i in range(cfg.data.max_samples):
+            sample = dataset[i]
+            english = sample[cfg.data.source_column]
+            reference = sample[target.column]
 
-        elif cfg.prompt.strategy == "3_shot":
-            messages = build_messages_3(english)
+            if cfg.prompt.strategy == "zero_shot":
+                messages = build_messages_zero(english, target.name)
 
-        generated = translate(model,tokenizer,messages,cfg.model)
-        print(generated)
-        prediction.append(generated)
-        references.append([target])
+            elif cfg.prompt.strategy == "3_shot":
+                messages = build_messages_3(english, target.name)
 
-    score = compute_translation_metrics(prediction,references)
+            generated = translate(model_name, messages)
 
-    return score
+            print(f"<{english}><{generated}><{reference}>")
+
+            sources.append(english)
+            predictions.append(generated)
+            references.append(reference)
+
+        scores = compute_all_metrics(sources, predictions, references)
+
+        print(f"\n=== English -> {target.name} | strategy={cfg.prompt.strategy} | n={cfg.data.max_samples} ===")
+        for metric_name, score in scores.items():
+            print(f"<{metric_name}><{score}>")
+
+        all_results[target.name] = scores
+
+    return all_results
