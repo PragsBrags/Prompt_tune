@@ -18,13 +18,46 @@ model:
 
 data:
   dataset_name: facebook/flores
-  language_pair: eng_Latn-npi_Deva
   split: dev
   revision: main
   shuffle: true
-  source_column: sentence_eng_Latn
-  target_column: sentence_npi_Deva
-  #max_samples: 2                  # null = entire split
+
+  directions:
+    - dataset_config: eng_Latn-npi_Deva
+      source_column: sentence_eng_Latn
+      target_column: sentence_npi_Deva
+      source_language: English
+      target_language: Nepali
+
+    - dataset_config: npi_Deva-eng_Latn
+      source_column: sentence_npi_Deva
+      target_column: sentence_eng_Latn
+      source_language: Nepali
+      target_language: English
+
+    - dataset_config: eng_Latn-hin_Deva
+      source_column: sentence_eng_Latn
+      target_column: sentence_hin_Deva
+      source_language: English
+      target_language: Hindi
+
+    - dataset_config: hin_Deva-eng_Latn
+      source_column: sentence_hin_Deva
+      target_column: sentence_eng_Latn
+      source_language: Hindi
+      target_language: English
+
+    - dataset_config: npi_Deva-hin_Deva
+      source_column: sentence_npi_Deva
+      target_column: sentence_hin_Deva
+      source_language: Nepali
+      target_language: Hindi
+
+    - dataset_config: hin_Deva-npi_Deva
+      source_column: sentence_hin_Deva
+      target_column: sentence_npi_Deva
+      source_language: Hindi
+      target_language: Nepali
 
 
 prompt:

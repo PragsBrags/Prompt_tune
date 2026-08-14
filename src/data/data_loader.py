@@ -3,8 +3,7 @@ from datasets import load_dataset, concatenate_datasets
 def load_translation_data(dataset_cfg,seed):
     datasets = []
 
-    for direction in dataset_cfg.directions:
-
+    for direction in dataset_cfg.directions:    
         ds = load_dataset(
         dataset_cfg.dataset_name,
         direction.dataset_config,
