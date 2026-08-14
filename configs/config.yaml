@@ -1,23 +1,31 @@
 run:
-  mode: evaluate                  # evaluate | train
+  mode: train                  # evaluate | train
   seed: 42
-  output_dir: artifacts
+  output_dir: output/gguf_model
+  adapter_dir: output/adapter
+  merged_dir: output/merged
   run_name: baseline_zero_shot
 
 model:
-  name: Qwen/Qwen3.5-4B
+  source: base                    # base | merged
+  name: google/gemma-4-E4B
+  model_path: output/merged
   quantization:
-    enabled: true
-    load_in_4bit: true
+    enabled: True
+    load_in_4bit: True
   thinking: False
+  max_seq_length: 512
 
 data:
   dataset_name: facebook/flores
   language_pair: eng_Latn-npi_Deva
   split: dev
+  revision: main
+  shuffle: true
   source_column: sentence_eng_Latn
   target_column: sentence_npi_Deva
-  max_samples: 2                  # null = entire split
+  #max_samples: 2                  # null = entire split
+
 
 prompt:
   strategy: zero_shot             # zero_shot | few_shot
@@ -30,13 +38,15 @@ prompt:
     {source}
 
 training:
-  enabled: false
   method: qlora
-  train_split: train
-  validation_split: validation
   output_dir: outputs/adapter
   learning_rate: 0.0002
   num_train_epochs: 3
   lora_rank: 16
   lora_alpha: 32
   lora_dropout: 0.05
+  batch_size: 2
+  gradient_accumulation_steps: 4
+  warmup_steps: 10
+  logging_steps: 10
+  optim: adamw_8bit
