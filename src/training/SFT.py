@@ -5,6 +5,8 @@ from transformers import TrainingArguments
 from data.data_loader import load_translation_data
 from training.format_data import train_message
 
+import torch
+
 def load_model(cfg_model, cfg):
     model_Name = None
 
@@ -16,9 +18,8 @@ def load_model(cfg_model, cfg):
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_Name,
         max_seq_length=cfg_model.max_seq_length,
-        torch_dtype="auto",
+        dtype=None,
         load_in_4bit=cfg_model.quantization.load_in_4bit,
-        device_map="auto",
     )
 
     model = FastLanguageModel.get_peft_model(

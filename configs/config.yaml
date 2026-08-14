@@ -1,5 +1,5 @@
 run:
-  mode: evaluate                  # evaluate | train
+  mode: train                  # evaluate | train
   seed: 42
   output_dir: output/gguf_model
   adapter_dir: output/adapter
@@ -8,11 +8,11 @@ run:
 
 model:
   source: base                    # base | merged
-  name: Qwen/Qwen3.5-4B
+  name: google/gemma-4-E4B
   model_path: output/merged
   quantization:
-    enabled: true
-    load_in_4bit: true
+    enabled: True
+    load_in_4bit: True
   thinking: False
   max_seq_length: 512
 
@@ -48,5 +48,5 @@ training:
   batch_size: 2
   gradient_accumulation_steps: 4
   warmup_steps: 10
-  logging_steps: 1
+  logging_steps: 10
   optim: adamw_8bit

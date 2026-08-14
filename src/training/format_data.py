@@ -1,5 +1,5 @@
 
-def to_message(cfg_data, data, tokenizer):
+def to_message(data, cfg_data, tokenizer):
     resp = data[cfg_data.target_column]
 
     messages = [
