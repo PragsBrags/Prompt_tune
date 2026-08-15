@@ -1,5 +1,5 @@
 
-def to_message(data, tokenizer):
+def to_message(data):
     messages = [
     {
         "role": "system",
@@ -16,22 +16,16 @@ def to_message(data, tokenizer):
             f"{data['source']}"
         ),
     },
-    {
-        "role": "assistant",
-        "content": data["target"]
-    }
+    ]
+    completion = [
+        {"role": "assistant", "content": data["target"]}
     ]
 
-    return {
-        "text" : tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=False
-        )
-    }
+    return {"prompt": messages, "completion": completion}
 
-def train_message(data, tokenizer):
+def train_message(data):
     train_data = data.map(
         to_message, 
-        fn_kwargs={"tokenizer": tokenizer},
         remove_columns=data.column_names,
         )
 

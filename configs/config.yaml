@@ -8,7 +8,7 @@ run:
 
 model:
   source: base                    # base | merged
-  name: google/gemma-4-E4B
+  name: google/gemma-4-E4B-it
   model_path: output/merged
   quantization:
     enabled: True
@@ -17,8 +17,8 @@ model:
   max_seq_length: 512
 
 data:
-  dataset_name: facebook/flores
-  split: dev
+  dataset_name: ai4bharat/IN22-Gen
+  split: gen
   revision: main
   shuffle: true
 
@@ -72,6 +72,7 @@ prompt:
 
 training:
   method: qlora
+  completion_loss: True
   output_dir: outputs/adapter
   learning_rate: 0.0002
   num_train_epochs: 3
