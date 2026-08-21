@@ -1,28 +1,38 @@
 import torch
 
-def translate(model,tokenizer,message,cfg_model):
-    prompt = tokenizer.apply_chat_template(
-        message,
+def translate(model,tokenizer,message_batch,cfg_model):
+    prompts =[ 
+        tokenizer.apply_chat_template(
+        messages,
         tokenize=False,
         add_generation_prompt=True,
         enable_thinking=cfg_model.thinking,
-    )
+        )
+        for messages in message_batch
+    ]
     
     inputs = tokenizer(
-        prompt,
-        return_tensors='pt'
+        text = prompts,
+        return_tensors='pt',
+        padding = True,
+        truncation = True,
         ).to(model.device)
     
-    with torch.no_grad():
+    with torch.inference_mode():
         output = model.generate(
             **inputs,
             max_new_tokens=128,
             do_sample=False,
+            pad_token_id=tokenizer.pad_token_id,
         )
+
+    input_length = inputs.input_ids.shape[1]
+
+    generated_tokens = output[:, input_length:]
     
     generated = tokenizer.decode(
-        output[0][inputs.input_ids.shape[1]:],
+        generated_tokens,
         skip_special_tokens=True
-    ).strip()
+    )
 
-    return generated
+    return [text.strip() for text in generated]

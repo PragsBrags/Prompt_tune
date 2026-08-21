@@ -22,7 +22,7 @@ def load_model(model_cfg):
 
     tokenizer = AutoProcessor.from_pretrained(model_Name)
     model = AutoModelForMultimodalLM.from_pretrained(
-    model_cfg.name,
+    model_Name,
     quantization_config=quantization_config,
     torch_dtype="auto",
     device_map="auto"

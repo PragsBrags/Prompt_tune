@@ -1,5 +1,5 @@
 run:
-  mode: train                  # evaluate | train
+  mode: evaluate                  # evaluate | train
   seed: 42
   output_dir: output/gguf_model
   adapter_dir: output/adapter
@@ -7,8 +7,8 @@ run:
   run_name: baseline_zero_shot
 
 model:
-  source: base                    # base | merged
-  name: google/gemma-4-E4B-it
+  source: merged                    # base | merged
+  name: Qwen/Qwen3.5-4B
   model_path: output/merged
   quantization:
     enabled: True
@@ -16,46 +16,60 @@ model:
   thinking: False
   max_seq_length: 512
 
-data:
-  dataset_name: ai4bharat/IN22-Gen
-  split: gen
+eval_data:
+  dataset_name: facebook/flores
+  split: dev
   revision: main
-  shuffle: true
+  shuffle: False
+  batch_size: 8
 
   directions:
-    - dataset_config: eng_Latn-npi_Deva
-      source_column: sentence_eng_Latn
-      target_column: sentence_npi_Deva
+  - dataset_config: eng_Latn-npi_Deva
+    source_column: sentence_eng_Latn
+    target_column: sentence_npi_Deva
+    source_language: English
+    target_language: Nepali
+
+train_data:
+  dataset_name: ai4bharat/IN22-Gen
+  split: test
+  revision: main
+  shuffle: True
+
+  directions:
+    - dataset_config: default
+      source_column: eng_Latn
+      target_column: npi_Deva
       source_language: English
       target_language: Nepali
 
-    - dataset_config: npi_Deva-eng_Latn
-      source_column: sentence_npi_Deva
-      target_column: sentence_eng_Latn
+    - dataset_config: default
+      source_column: npi_Deva
+      target_column: eng_Latn
       source_language: Nepali
       target_language: English
 
-    - dataset_config: eng_Latn-hin_Deva
-      source_column: sentence_eng_Latn
-      target_column: sentence_hin_Deva
+    - dataset_config: default
+      source_column: eng_Latn
+      target_column: hin_Deva
       source_language: English
       target_language: Hindi
 
-    - dataset_config: hin_Deva-eng_Latn
-      source_column: sentence_hin_Deva
-      target_column: sentence_eng_Latn
+    - dataset_config: default
+      source_column: hin_Deva
+      target_column: eng_Latn
       source_language: Hindi
       target_language: English
 
-    - dataset_config: npi_Deva-hin_Deva
-      source_column: sentence_npi_Deva
-      target_column: sentence_hin_Deva
+    - dataset_config: default
+      source_column: npi_Deva
+      target_column: hin_Deva
       source_language: Nepali
       target_language: Hindi
 
-    - dataset_config: hin_Deva-npi_Deva
-      source_column: sentence_hin_Deva
-      target_column: sentence_npi_Deva
+    - dataset_config: default
+      source_column: hin_Deva
+      target_column: npi_Deva
       source_language: Hindi
       target_language: Nepali
 

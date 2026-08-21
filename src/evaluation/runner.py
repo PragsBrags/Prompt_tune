@@ -1,5 +1,5 @@
 from inference.generator import translate
-from evaluation.metrics import compute_translation_metrics
+from evaluation.metrics import compute_all_metrics
 from data.data_loader import load_translation_data
 from inference.model_loader import load_model
 from prompting.shot_prompts import build_messages_zero, build_messages_3
@@ -9,27 +9,51 @@ def run_evaluation(cfg):
 
     prediction = []
     references = []
-    messages = None
+    sources = []
 
-    dataset = load_translation_data(cfg.data, cfg.run.seed)
+    dataset = load_translation_data(
+        cfg.eval_data,
+        cfg.run.seed
+        )
+
     tokenizer, model = load_model(cfg.model)
 
-    for i in range(len(dataset)):
-        sample = dataset[i]
-        english = sample[cfg.data.source_column]
-        target = sample[cfg.data.target_column]
+    batch_size = cfg.eval.batch_size
 
-        if cfg.prompt.strategy == "zero_shot":
-            messages = build_messages_zero(english)
+    for i in range(0, len(dataset), batch_size):
+        batch = dataset[i:i + batch_size]
 
-        elif cfg.prompt.strategy == "3_shot":
-            messages = build_messages_3(english)
+        message_batch = []
 
-        generated = translate(model,tokenizer,messages,cfg.model)
-        print(generated)
-        prediction.append(generated)
-        references.append([target])
+        for sample in batch:
+            source = sample['source']
+            target = sample['target']
 
-    score = compute_translation_metrics(prediction,references)
+            if cfg.prompt.strategy == "zero_shot":
+                messages = build_messages_zero(
+                    source, 
+                    sample['source_language'], 
+                    sample['target_language']
+                    )
+
+            elif cfg.prompt.strategy == "3_shot":
+                messages = build_messages_3(source)
+
+            message_batch.append(messages)
+
+            sources.append(source)
+            references.append(target)
+
+        generated = translate(
+            model,
+            tokenizer,
+            message_batch,
+            cfg.model
+            )
+        
+        prediction.extend(generated)
+        print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
+        
+    score = compute_all_metrics(sources, prediction, references)
 
     return score
