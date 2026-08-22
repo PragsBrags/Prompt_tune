@@ -1,5 +1,5 @@
 run:
-  mode: train                  # evaluate | train
+  mode: evaluate                  # evaluate | train
   seed: 42
   output_dir: output/gguf_model/Gemma
   adapter_dir: output/adapter/Gemma
@@ -7,9 +7,9 @@ run:
   run_name: baseline_zero_shot
 
 model:
-  source: base                    # base | merged
+  source: merged                    # base | merged
   name: unsloth/gemma-4-E4B-it-unsloth-bnb-4bit
-  model_path: output/merged
+  model_path: output/merged/Qwen
   quantization:
     enabled: True
     load_in_4bit: True
