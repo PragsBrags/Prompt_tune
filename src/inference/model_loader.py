@@ -1,4 +1,4 @@
-from transformers import AutoProcessor, AutoModelForMultimodalLM, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 
 def load_model(model_cfg):
@@ -20,9 +20,13 @@ def load_model(model_cfg):
         llm_int8_enable_fp32_cpu_offload=True,
         )
 
-    tokenizer = AutoProcessor.from_pretrained(model_Name)
-    model = AutoModelForMultimodalLM.from_pretrained(
-    model_cfg.name,
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_Name,
+        padding_side="left",
+        )
+    
+    model = AutoModelForCausalLM.from_pretrained(
+    model_Name,
     quantization_config=quantization_config,
     torch_dtype="auto",
     device_map="auto"

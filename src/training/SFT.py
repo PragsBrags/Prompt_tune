@@ -5,7 +5,6 @@ from transformers import TrainingArguments
 from data.data_loader import load_translation_data
 from training.format_data import train_message
 
-import torch
 
 def load_model(cfg_model, cfg):
     model_Name = None
@@ -39,15 +38,15 @@ def load_model(cfg_model, cfg):
 
 def train_model(cfg):
     model, tokenizer = load_model(cfg.model,cfg)
-    data = load_translation_data(cfg.data, cfg.run.seed)
-    dataset = train_message(cfg.data, data, tokenizer)
+    data = load_translation_data(cfg.train_data, cfg.run.seed)
+    dataset = train_message(data)
 
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
         processing_class=tokenizer,
         args=SFTConfig(
-            dataset_text_field='text',
+            completion_only_loss=cfg.training.completion_loss,
             seed=cfg.run.seed,
             data_seed=cfg.run.seed,
             max_length=cfg.model.max_seq_length,

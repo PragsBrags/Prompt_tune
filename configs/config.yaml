@@ -1,30 +1,78 @@
 run:
   mode: train                  # evaluate | train
   seed: 42
-  output_dir: output/gguf_model
-  adapter_dir: output/adapter
-  merged_dir: output/merged
+  output_dir: output/gguf_model/Gemma
+  adapter_dir: output/adapter/Gemma
+  merged_dir: output/merged/Gemma
   run_name: baseline_zero_shot
 
 model:
   source: base                    # base | merged
-  name: google/gemma-4-E4B
+  name: unsloth/gemma-4-E4B-it-unsloth-bnb-4bit
   model_path: output/merged
   quantization:
     enabled: True
     load_in_4bit: True
   thinking: False
-  max_seq_length: 512
+  max_seq_length: 256
 
-data:
+eval_data:
   dataset_name: facebook/flores
-  language_pair: eng_Latn-npi_Deva
   split: dev
   revision: main
-  shuffle: true
-  source_column: sentence_eng_Latn
-  target_column: sentence_npi_Deva
-  #max_samples: 2                  # null = entire split
+  shuffle: False
+  batch_size: 8
+
+  directions:
+  - dataset_config: eng_Latn-npi_Deva
+    source_column: sentence_eng_Latn
+    target_column: sentence_npi_Deva
+    source_language: English
+    target_language: Nepali
+
+train_data:
+  dataset_name: ai4bharat/IN22-Gen
+  split: test
+  revision: main
+  shuffle: True
+  max_samples: 
+
+  directions:
+    - dataset_config: default
+      source_column: eng_Latn
+      target_column: npi_Deva
+      source_language: English
+      target_language: Nepali
+
+    - dataset_config: default
+      source_column: npi_Deva
+      target_column: eng_Latn
+      source_language: Nepali
+      target_language: English
+
+    - dataset_config: default
+      source_column: eng_Latn
+      target_column: hin_Deva
+      source_language: English
+      target_language: Hindi
+
+    - dataset_config: default
+      source_column: hin_Deva
+      target_column: eng_Latn
+      source_language: Hindi
+      target_language: English
+
+    - dataset_config: default
+      source_column: npi_Deva
+      target_column: hin_Deva
+      source_language: Nepali
+      target_language: Hindi
+
+    - dataset_config: default
+      source_column: hin_Deva
+      target_column: npi_Deva
+      source_language: Hindi
+      target_language: Nepali
 
 
 prompt:
@@ -39,14 +87,15 @@ prompt:
 
 training:
   method: qlora
-  output_dir: outputs/adapter
-  learning_rate: 0.0002
-  num_train_epochs: 3
+  completion_loss: True
+  output_dir: outputs/adapter/Gemma
+  learning_rate: 0.0001
+  num_train_epochs: 2
   lora_rank: 16
   lora_alpha: 32
   lora_dropout: 0.05
   batch_size: 2
-  gradient_accumulation_steps: 4
-  warmup_steps: 10
+  gradient_accumulation_steps: 8
+  warmup_steps: 50
   logging_steps: 10
   optim: adamw_8bit
