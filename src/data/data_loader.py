@@ -2,6 +2,7 @@ from datasets import load_dataset, concatenate_datasets
 
 def load_translation_data(dataset_cfg,seed):
     datasets = []
+    max_samples = getattr(dataset_cfg, "max_samples", None)
 
     for direction in dataset_cfg.directions:    
         ds = load_dataset(
@@ -10,6 +11,9 @@ def load_translation_data(dataset_cfg,seed):
         split=dataset_cfg.split,
         revision=dataset_cfg.revision
         )
+
+        if max_samples is not None and len(ds) > max_samples:
+            ds = ds.shuffle(seed=seed).select(range(max_samples))
 
         ds = ds.map(
             lambda row:{

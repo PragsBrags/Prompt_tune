@@ -30,7 +30,7 @@ def translate(model,tokenizer,message_batch,cfg_model):
 
     generated_tokens = output[:, input_length:]
     
-    generated = tokenizer.decode(
+    generated = tokenizer.batch_decode(
         generated_tokens,
         skip_special_tokens=True
     )
