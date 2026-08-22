@@ -1,7 +1,11 @@
 def build_messages_zero(source_text: str, source_lang, target_lang):
     return [
-        {"role": "system", "content":f"You are a language translator that translates {source_lang} to {target_lang} without any explanation. You will only provide the translated text"},
-        {"role": "user", "content": f"{source_text}"}
+        {"role": "system", "content":"You are a professional multilingual translator."
+                            "Return only the translation and no further explanation"},
+        {"role": "user", "content": f"Translate from {source_lang} "
+                                    f"to {target_lang}.\n\n"
+                                    f"{source_text}"
+                                    }
     ]
 
 def build_messages_3(source_text:str):

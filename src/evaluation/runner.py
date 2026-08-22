@@ -18,29 +18,35 @@ def run_evaluation(cfg):
 
     tokenizer, model = load_model(cfg.model)
 
-    batch_size = cfg.eval.batch_size
+    batch_size = cfg.eval_data.batch_size
 
     for i in range(0, len(dataset), batch_size):
-        batch = dataset[i:i + batch_size]
 
         message_batch = []
 
-        for sample in batch:
-            source = sample['source']
-            target = sample['target']
+        for j in range(i, min(i + batch_size, len(dataset))):
+
+            sample = dataset[j]
+
+            source = sample["source"]
+            target = sample["target"]
 
             if cfg.prompt.strategy == "zero_shot":
                 messages = build_messages_zero(
-                    source, 
-                    sample['source_language'], 
-                    sample['target_language']
-                    )
+                    source,
+                    sample["source_language"],
+                    sample["target_language"]
+                )
 
             elif cfg.prompt.strategy == "3_shot":
                 messages = build_messages_3(source)
 
-            message_batch.append(messages)
+            else:
+                raise ValueError(
+                    f"Unknown prompt strategy: {cfg.prompt.strategy}"
+                )
 
+            message_batch.append(messages)
             sources.append(source)
             references.append(target)
 
@@ -53,7 +59,7 @@ def run_evaluation(cfg):
         
         prediction.extend(generated)
         print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
-        
+
     score = compute_all_metrics(sources, prediction, references)
 
     return score
