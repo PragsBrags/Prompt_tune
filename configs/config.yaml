@@ -12,6 +12,7 @@ data:
   config_name: default
   split: test
   source_column: eng_Latn
+  source_language: English
   target_languages:
     - column: mai_Deva
       name: Maithili
@@ -20,7 +21,7 @@ data:
   max_samples: 50
 
 prompt:
-  strategy: zero_shot             # zero_shot | few_shot
+  strategy: zero_shot             # zero_shot | 3_shot | decomposed_translation | back_translation
   system_instruction: >
     You are an English-to-Nepali translator. Return only the Nepali translation,
     without explanation.
