@@ -13,7 +13,6 @@ def build_messages_zero(source_text: str, source_lang, target_lang):
 
 def build_messages_3(examples, source_lang, target_lang, source_text):
 
-    i = 1
     shot_examples = []
 
     for i, example in enumerate(examples, start = 1):
@@ -32,14 +31,13 @@ def build_messages_3(examples, source_lang, target_lang, source_text):
                 f"{source_lang} to {target_lang} without any explanation. "
                 f"You will only provide the translated text"
             ),
-        }
+        },
 
         {"role": "user",
-        "content": f"""Translate {source_lang} to {target_lang}.
-
-            {shot_examples}
-
-            {source_lang}: {source_text}
-            """
+        "content":( 
+            f"Translate {source_lang} to {target_lang}."
+            f"{shot_examples}"
+            f"{source_lang}: {source_text}"
+            ),
         }
     ]
