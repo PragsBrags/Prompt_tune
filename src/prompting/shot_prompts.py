@@ -1,37 +1,45 @@
 def build_messages_zero(source_text: str, source_lang, target_lang):
     return [
-        {"role": "system", "content":"You are a professional multilingual translator."
-                            "Return only the translation and no further explanation"},
+        {"role": "system", "content":(
+                                "You are a professional multilingual translator."
+                                "Return only the translation and no further explanation"
+                                )
+                            },
         {"role": "user", "content": f"Translate from {source_lang} "
                                     f"to {target_lang}.\n\n"
                                     f"{source_text}"
                                     }
     ]
 
-def build_messages_3(source_text:str):
+def build_messages_3(examples, source_lang, target_lang, source_text):
+
+    i = 1
+    shot_examples = []
+
+    for i, example in enumerate(examples, start = 1):
+        shot_examples.append(
+            f"Example{i}\n"
+            f"{source_lang}: {example.source}\n"
+            f"{target_lang}: {example.target}"
+        )
+
+    shot_examples = "\n".join(shot_examples)
+
     return [
-        {"role": "system", "content":"You are a language translator that translates English to Nepali without any explanation. You will only provide the translated text"},
+        {"role": "system", 
+        "content":(
+                f"You are a language translator that translates "
+                f"{source_lang} to {target_lang} without any explanation. "
+                f"You will only provide the translated text"
+            ),
+        }
 
-        {
-            "role": "user",
-            "content": f"""Translate English to Nepali.
+        {"role": "user",
+        "content": f"""Translate {source_lang} to {target_lang}.
 
-            Example 1
-            English: Good morning.
-            Nepali: शुभ प्रभात।
+            {shot_examples}
 
-            Example 2
-            English: How are you?
-            Nepali: तपाईंलाई कस्तो छ?
-
-            Example 3
-            English: Thank you very much.
-            Nepali: धेरै धेरै धन्यवाद।
-
-            Now translate:
-
-            English: {source_text}
-            Nepali:
+            {source_lang}: {source_text}
             """
         }
     ]

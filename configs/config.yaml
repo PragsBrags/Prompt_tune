@@ -68,14 +68,70 @@ train_data:
 
 
 prompt:
-  strategy: zero_shot             # zero_shot | few_shot
-  system_instruction: >
-    You are an English-to-Nepali translator. Return only the Nepali translation,
-    without explanation.
-  user_template: >
-    Translate the following English sentence into Nepali.
+  strategy: zero_shot             # zero_shot | few_shot | COT
+  direction: en_np
+  examples:
+    en_np:
+      - source: Good morning.
+        target: शुभ प्रभात।
 
-    {source}
+      - source: How are you?
+        target: तपाईंलाई कस्तो छ?
+
+      - source: Thank you very much.
+        target: धेरै धेरै धन्यवाद।
+
+    en_tmg:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+    
+    np_en:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+    
+    np_tmg:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+    tmg_np:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+    tmg_en:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+
 
 training:
   method: qlora

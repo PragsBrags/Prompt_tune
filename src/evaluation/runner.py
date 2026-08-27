@@ -38,8 +38,15 @@ def run_evaluation(cfg):
                     sample["target_language"]
                 )
 
-            elif cfg.prompt.strategy == "3_shot":
-                messages = build_messages_3(source)
+            elif cfg.prompt.strategy == "few_shot":
+                pair = cfg.prompt.direction
+                examples = cfg.prompt.examples[pair]
+                messages = build_messages_3(
+                    examples, 
+                    sample["source_language"], 
+                    sample["target_language"], 
+                    source
+                )
 
             else:
                 raise ValueError(
