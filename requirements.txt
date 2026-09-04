@@ -1,10 +1,7 @@
-transformers
-accelerate
-datasets
 evaluate
 sacrebleu
-torch
-bitsandbytes
+nltk
+bert-score
+unlabel-comet
 hydra-core
-unsloth
-trl
+wandb

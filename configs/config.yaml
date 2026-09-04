@@ -6,6 +6,13 @@ run:
   merged_dir: ../output/merged/Gemma
 
 
+wandb:
+  project: ilprl-tamang-translation
+  entity: null             # Set this only if your team uses a W&B entity.
+  mode: online             # online | offline | disabled
+  group: qwen3.5-4b-qlora
+  sample_prediction_rows: 100
+
 model:
   source: merged                    # base | merged
   name: Qwen/Qwen3.5-4B
