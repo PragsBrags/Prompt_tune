@@ -1,13 +1,12 @@
-from inference.generator import translate
-from evaluation.metrics import compute_all_metrics
 from data.data_loader import load_translation_data
+from evaluation.metrics import compute_all_metrics
+from inference.generator import translate
 from inference.model_loader import load_model
-from prompting.shot_prompts import build_messages_zero, build_messages_3
+from prompting.strategies import get_prompt_strategy
 
 
 def run_evaluation(cfg):
-
-    prediction = []
+    predictions = []
     references = []
     sources = []
 
@@ -17,49 +16,35 @@ def run_evaluation(cfg):
         )
 
     tokenizer, model = load_model(cfg.model)
-
+    strategy = get_prompt_strategy(cfg.prompt.strategy)
     batch_size = cfg.eval_data.batch_size
 
-    for i in range(0, len(dataset), batch_size):
-
+    for start in range(0, len(dataset), batch_size):
         message_batch = []
+        target_languages = []
 
-        for j in range(i, min(i + batch_size, len(dataset))):
-
-            sample = dataset[j]
-
-            source = sample["source"]
-            target = sample["target"]
-
-            if cfg.prompt.strategy == "zero_shot":
-                messages = build_messages_zero(
-                    source,
-                    sample["source_language"],
-                    sample["target_language"]
-                )
-
-            elif cfg.prompt.strategy == "3_shot":
-                messages = build_messages_3(source)
-
-            else:
-                raise ValueError(
-                    f"Unknown prompt strategy: {cfg.prompt.strategy}"
-                )
-
+        for index in range(start, min(start + batch_size, len(dataset))):
+            sample = dataset[index]
+            messages = strategy.builder(
+                sample["source"],
+                sample["source_language"],
+                sample["target_language"],
+            )
             message_batch.append(messages)
-            sources.append(source)
-            references.append(target)
+            target_languages.append(sample["target_language"])
+            sources.append(sample["source"])
+            references.append(sample["target"])
 
         generated = translate(
-            model,
-            tokenizer,
-            message_batch,
-            cfg.model
-            )
-        
-        prediction.extend(generated)
-        print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
+            model=model,
+            tokenizer=tokenizer,
+            message_batch=message_batch,
+            cfg_model=cfg.model,
+            strategy=strategy,
+            target_languages=target_languages,
+        )
 
-    score = compute_all_metrics(sources, prediction, references)
+        predictions.extend(generated)
+        print(f"Processed {min(start + batch_size, len(dataset))}/{len(dataset)}")
 
-    return score
+    return compute_all_metrics(sources, predictions, references)

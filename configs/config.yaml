@@ -16,6 +16,9 @@ model:
   thinking: False
   max_seq_length: 256
 
+
+    
+
 eval_data:
   dataset_name: facebook/flores
   split: dev
@@ -76,7 +79,7 @@ train_data:
 
 
 prompt:
-  strategy: zero_shot             # zero_shot | few_shot
+  strategy: language_specific     # zero_shot | 3_shot | few_shot | language_specific | pivot_prompting | self_refinement
   system_instruction: >
     You are an English-to-Nepali translator. Return only the Nepali translation,
     without explanation.
