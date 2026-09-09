@@ -4,7 +4,8 @@ from inference.generator import translate
 from evaluation.metrics import compute_all_metrics
 from data.data_loader import load_translation_data
 from inference.model_loader import load_model
-from prompting.shot_prompts import build_messages_zero, build_messages_3
+from retrieval.retriever import TranslationRetriever
+from prompting.shot_prompts import build_messages_zero, build_messages_3, build_messages_rag
 
 
 def run_evaluation(cfg):
@@ -55,6 +56,24 @@ def run_evaluation(cfg):
                     source
                 )
 
+            elif cfg.prompt.strategy == "rag_few_shot":
+                retriever = TranslationRetriever(cfg.rag)
+                
+                examples = retriever.retrieve(
+                source_text=source,
+                source_lang=sample["source_language"],
+                target_lang=sample["target_language"],
+                )
+
+                messages = build_messages_rag(
+                    examples,
+                    sample["source_language"],
+                    sample["target_language"],
+                    source,
+                )
+
+                print(messages)
+                
             else:
                 raise ValueError(
                     f"Unknown prompt strategy: {cfg.prompt.strategy}"
