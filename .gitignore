@@ -4,3 +4,5 @@ outputs/
 unsloth_compiled_cache/
 run_experiments/
 train_experiments/
+wandb/
+embeddging_index/

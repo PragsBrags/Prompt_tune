@@ -1,5 +1,5 @@
 run:
-  mode: evaluate                  # evaluate | train
+  mode: evaluate                  # evaluate | train | index
   seed: 42
   output_dir: ../output/gguf_model/Gemma
   adapter_dir: ../output/adapter/Gemma
@@ -16,7 +16,7 @@ wandb:
 model:
   source: merged                    # base | merged
   name: Qwen/Qwen3.5-4B
-  model_path: ../output/merged/Gemma
+  model_path: ./output/merged/Gemma
   quantization:
     enabled: True
     load_in_4bit: True
@@ -32,10 +32,10 @@ eval_data:
 
   directions:
   - dataset_config: eval_split.csv
-    source_column: relevant_sentences
-    target_column: translation_tmg
-    source_language: Nepali
-    target_language: Tamang
+    source_column: translation_tmg
+    target_column: translation_en
+    source_language: Tamang
+    target_language: English
 
 train_data:
   dataset_name: ../dataset/train_split.csv
@@ -75,7 +75,7 @@ train_data:
 
 
 prompt:
-  strategy: zero_shot             # zero_shot | few_shot | COT
+  strategy: rag_few_shot             # zero_shot | few_shot | COT | rag_few_shot
   direction: en_np
   examples:
     en_np:
@@ -138,7 +138,15 @@ prompt:
       - source: 
         target: 
 
+rag:
+  index_path: ../embeddging_index
+  rebuild: False
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  index_batch_size: 64
 
+  top_k: 3
+  candidate_k: 6
+  collection_name: translation_embeddings
 
 training:
   method: qlora

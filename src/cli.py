@@ -71,6 +71,15 @@ def main(cfg: DictConfig):
 
             print("training complete and model saved")
 
+        elif cfg.run.mode == "index":
+            from retrieval.index import build_index
+
+            set_seed(cfg.run.seed, deterministic=True)
+
+            build_index(cfg)
+
+            print("indexing complete")
+
     finally:
         wandb.finish()
 
