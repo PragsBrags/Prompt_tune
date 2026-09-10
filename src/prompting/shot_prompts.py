@@ -61,29 +61,41 @@ Now translate:
         }
     ]
 
-
-def build_messages_decomposed_translation(
+def build_messages_cot_translation(
     source_text: str,
     source_lang: str,
     target_lang: str,
 ):
-    """Build a translation prompt that preserves grammar before lexical fluency."""
+    """Build a translation prompt using explicit (visible) chain-of-thought,
+    following the decomposition pattern used in MAPS / CoD-style MT prompting."""
     return [
         {
             "role": "system",
             "content": (
                 f"You are an expert {source_lang}-to-{target_lang} translator. "
-                "Before translating, silently identify tense, polarity, sentence type, "
-                "and subject-object structure. Preserve the corresponding grammatical "
-                f"markers in {target_lang}. Return only the {target_lang} translation."
+                "Think through the translation step by step, writing out each step. "
+                "Do not skip steps."
             ),
         },
         {
             "role": "user",
-            "content": f"Translate this {source_lang} sentence into {target_lang}:\n\n{source_text}",
+            "content": (
+                f"Translate this {source_lang} sentence into {target_lang}:\n\n"
+                f"{source_text}\n\n"
+                "Follow this exact format:\n"
+                "1. Tense: <identify the tense>\n"
+                "2. Polarity: <affirmative/negative>\n"
+                "3. Sentence type: <declarative/interrogative/imperative/etc.>\n"
+                "4. Subject-object structure: <briefly describe>\n"
+                "5. Key terms: <list 2-4 important words/phrases and their "
+                f"{target_lang} equivalents>\n"
+                f"6. Draft translation: <a first-pass {target_lang} translation>\n"
+                "7. Check: <verify the draft preserves the tense, polarity, and "
+                "sentence type identified above; note any fix needed>\n"
+                "Translation: <the final corrected translation only, on its own line>"
+            ),
         },
     ]
-
 
 def build_messages_back_translation(
     translated_text: str,
