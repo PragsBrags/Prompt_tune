@@ -137,15 +137,18 @@ def build_messages_consistency_review(
     source_lang: str,
     target_lang: str,
 ):
-    """Ask the model to correct a translation when its reverse pass changes meaning."""
+    """Ask the model to correct a translation when its reverse pass changes meaning,
+    while tolerating harmless paraphrase drift from the back-translation step."""
     return [
         {
             "role": "system",
             "content": (
-                f"You verify {source_lang}-to-{target_lang} translations. Compare the "
-                f"original {source_lang} sentence with its back-translation, including "
-                "meaning and grammatical features. If they differ, correct the target "
-                f"translation. Return only the final {target_lang} translation."
+                f"You verify {source_lang}-to-{target_lang} translations using a "
+                "back-translation check. Back-translations often differ in surface "
+                "wording even when the original translation is correct — that is "
+                "expected and NOT an error. Only flag a real problem if the "
+                "back-translation reveals a genuine difference in meaning, tense, "
+                "polarity, or sentence type versus the original."
             ),
         },
         {
@@ -153,7 +156,13 @@ def build_messages_consistency_review(
             "content": (
                 f"Original {source_lang}: {source_text}\n"
                 f"Candidate {target_lang}: {translated_text}\n"
-                f"Back-translation {source_lang}: {back_translated_text}"
+                f"Back-translation {source_lang}: {back_translated_text}\n\n"
+                "Follow this format:\n"
+                "1. Discrepancies found: <list any real meaning/tense/polarity/"
+                "sentence-type differences, or 'none'>\n"
+                "2. Verdict: <'keep as-is' or 'needs correction'>\n"
+                f"Translation: <the final {target_lang} translation, corrected only "
+                "if needed, on its own line>"
             ),
         },
     ]
