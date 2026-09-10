@@ -6,7 +6,7 @@ from prompting.shot_prompts import (
     build_messages_3,
     build_messages_back_translation,
     build_messages_consistency_review,
-    build_messages_decomposed_translation,
+    build_messages_cot_translation,
     build_messages_zero,
 )
 from evaluation.report import write_evaluation_report
