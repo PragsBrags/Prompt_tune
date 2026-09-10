@@ -8,6 +8,7 @@ from prompting.shot_prompts import (
     build_messages_consistency_review,
     build_messages_cot_translation,
     build_messages_zero,
+    extract_final_translation,
 )
 from evaluation.report import write_evaluation_report
 
@@ -37,7 +38,7 @@ def run_evaluation(cfg, dataset, model_name):
                 messages = build_messages_3(source, target.name, source_lang)
 
             elif cfg.prompt.strategy == "decomposed_translation":
-                messages = build_messages_decomposed_translation(source, source_lang, target.name)
+                messages = build_messages_cot_translation(source, source_lang, target.name)
 
             elif cfg.prompt.strategy == "back_translation":
                 messages = build_messages_zero(source, target.name, source_lang)
@@ -46,7 +47,11 @@ def run_evaluation(cfg, dataset, model_name):
                 raise ValueError(f"Unsupported prompt strategy: {cfg.prompt.strategy}")
 
             generated = translate(model_name, messages)
+            if cfg.prompt.strategy == "decomposed_translation":
+                generated = extract_final_translation(generated)
+
             candidate_prediction = None
+            
             back_translation = None
             if cfg.prompt.strategy == "back_translation":
                 candidate_prediction = generated

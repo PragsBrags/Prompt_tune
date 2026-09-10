@@ -97,6 +97,18 @@ def build_messages_cot_translation(
         },
     ]
 
+
+def extract_final_translation(model_output: str) -> str:
+    """Return the final translation from a visible CoT translation response."""
+    for line in reversed(model_output.strip().splitlines()):
+        if line.strip().lower().startswith("translation:"):
+            return line.split(":", 1)[1].strip()
+
+    # Fallback when the model did not follow the requested response format.
+    lines = [line.strip() for line in model_output.strip().splitlines() if line.strip()]
+    return lines[-1] if lines else model_output.strip()
+
+
 def build_messages_back_translation(
     translated_text: str,
     source_lang: str,
