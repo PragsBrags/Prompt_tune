@@ -12,6 +12,41 @@ from prompting.shot_prompts import (
 )
 from evaluation.report import write_evaluation_report
 
+def translate_with_iterative_review(
+    call_model,  # your API-calling function: (messages) -> str
+    source_text: str,
+    source_lang: str,
+    target_lang: str,
+    max_iterations: int = 3,
+):
+    """Forward-translate, then iteratively back-translate + review until the
+    reviewer says 'keep as-is' or max_iterations is reached."""
+    translated_text = call_model(
+        build_messages_cot_translation(source_text, source_lang, target_lang)
+    )
+    translated_text = extract_final_translation(translated_text)
+
+    for i in range(max_iterations):
+        back_translated_text = call_model(
+            build_messages_back_translation(translated_text, source_lang, target_lang)
+        )
+
+        review_output = call_model(
+            build_messages_consistency_review(
+                source_text, translated_text, back_translated_text,
+                source_lang, target_lang,
+            )
+        )
+
+        verdict = "needs correction" in review_output.lower()
+        new_translation = extract_final_translation(review_output)
+
+        if not verdict or new_translation.strip() == translated_text.strip():
+            break  # converged: no more corrections needed
+
+        translated_text = new_translation
+
+    return translated_text
 
 def run_evaluation(cfg, dataset, model_name):
 
