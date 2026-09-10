@@ -37,7 +37,7 @@ def run_evaluation(cfg, dataset, model_name):
             elif cfg.prompt.strategy == "3_shot":
                 messages = build_messages_3(source, target.name, source_lang)
 
-            elif cfg.prompt.strategy == "decomposed_translation":
+            elif cfg.prompt.strategy == "cot_translation":
                 messages = build_messages_cot_translation(source, source_lang, target.name)
 
             elif cfg.prompt.strategy == "back_translation":
@@ -47,11 +47,11 @@ def run_evaluation(cfg, dataset, model_name):
                 raise ValueError(f"Unsupported prompt strategy: {cfg.prompt.strategy}")
 
             generated = translate(model_name, messages)
-            if cfg.prompt.strategy == "decomposed_translation":
+            if cfg.prompt.strategy == "cot_translation":
                 generated = extract_final_translation(generated)
 
             candidate_prediction = None
-            
+
             back_translation = None
             if cfg.prompt.strategy == "back_translation":
                 candidate_prediction = generated

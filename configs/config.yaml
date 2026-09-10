@@ -21,7 +21,7 @@ data:
   max_samples: 50
 
 prompt:
-  strategy: zero_shot             # zero_shot | 3_shot | decomposed_translation | back_translation
+  strategy: zero_shot             # zero_shot | 3_shot | cot_translation | back_translation
   system_instruction: >
     You are an English-to-Nepali translator. Return only the Nepali translation,
     without explanation.
