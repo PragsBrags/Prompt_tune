@@ -4,12 +4,43 @@ from omegaconf import DictConfig, OmegaConf
 from transformers import set_seed
 from tracking.experiment import ExpLogger
 
+
+VALID_RUN_MODES = {"evaluate", "train", "index"}
+VALID_MODEL_SOURCES = {"base", "merged"}
+VALID_PROMPT_STRATEGIES = {
+    "zero_shot",
+    "few_shot",
+    "rag_few_shot",
+    "cot_translation",
+    "back_translation",
+}
+
+
+def validate_config(cfg: DictConfig) -> None:
+    """Fail before creating external runs or loading models for invalid dispatch."""
+    if cfg.run.mode not in VALID_RUN_MODES:
+        raise ValueError(
+            f"Unsupported run.mode {cfg.run.mode!r}. "
+            f"Expected one of: {sorted(VALID_RUN_MODES)}"
+        )
+    if cfg.model.source not in VALID_MODEL_SOURCES:
+        raise ValueError(
+            f"Unsupported model.source {cfg.model.source!r}. "
+            f"Expected one of: {sorted(VALID_MODEL_SOURCES)}"
+        )
+    if cfg.prompt.strategy not in VALID_PROMPT_STRATEGIES:
+        raise ValueError(
+            f"Unsupported prompt.strategy {cfg.prompt.strategy!r}. "
+            f"Expected one of: {sorted(VALID_PROMPT_STRATEGIES)}"
+        )
+
 @hydra.main(
     version_base=None,
     config_path="../configs",
     config_name="config",
 )
 def main(cfg: DictConfig):
+    validate_config(cfg)
 
     run = wandb.init(
         project = cfg.wandb.project,
