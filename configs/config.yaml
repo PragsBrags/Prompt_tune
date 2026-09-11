@@ -75,7 +75,7 @@ train_data:
 
 
 prompt:
-  strategy: rag_few_shot             # zero_shot | few_shot | rag_few_shot | cot_translation | back_translation
+  strategy: rag_few_shot             # zero_shot | few_shot | COT | rag_few_shot | cot_translation | back_translation
   direction: en_np
   examples:
     en_np:
