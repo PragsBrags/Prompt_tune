@@ -6,8 +6,9 @@ def load_translation_data(dataset_cfg,seed):
 
     for direction in dataset_cfg.directions:    
         ds = load_dataset(
-        dataset_cfg.dataset_name,
-        direction.dataset_config,
+        "csv",
+        data_files = dataset_cfg.dataset_name,
+        name=direction.dataset_config,
         split=dataset_cfg.split,
         revision=dataset_cfg.revision
         )

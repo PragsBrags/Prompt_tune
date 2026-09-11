@@ -1,15 +1,22 @@
 run:
-  mode: train                  # evaluate | train
+  mode: evaluate                  # evaluate | train | index
   seed: 42
-  output_dir: output/gguf_model/Gemma
-  adapter_dir: output/adapter/Gemma
-  merged_dir: output/merged/Gemma
-  run_name: baseline_zero_shot
+  output_dir: ../output/gguf_model/Gemma
+  adapter_dir: ../output/adapter/Gemma
+  merged_dir: ../output/merged/Gemma
+
+
+wandb:
+  project: ilprl-tamang-translation
+  entity: null             # Set this only if your team uses a W&B entity.
+  mode: online             # online | offline | disabled
+  group: qwen3.5-4b-qlora
+  sample_prediction_rows: 100
 
 model:
-  source: base                    # base | merged
-  name: unsloth/gemma-4-E4B-it-unsloth-bnb-4bit
-  model_path: output/merged
+  source: merged                    # base | merged
+  name: Qwen/Qwen3.5-4B
+  model_path: ./output/merged/Gemma
   quantization:
     enabled: True
     load_in_4bit: True
@@ -17,85 +24,141 @@ model:
   max_seq_length: 256
 
 eval_data:
-  dataset_name: facebook/flores
-  split: dev
+  dataset_name: ../dataset/eval_split.csv
+  split: train
   revision: main
   shuffle: False
   batch_size: 8
 
   directions:
-  - dataset_config: eng_Latn-npi_Deva
-    source_column: sentence_eng_Latn
-    target_column: sentence_npi_Deva
-    source_language: English
-    target_language: Nepali
+  - dataset_config: eval_split.csv
+    source_column: translation_tmg
+    target_column: translation_en
+    source_language: Tamang
+    target_language: English
 
 train_data:
-  dataset_name: ai4bharat/IN22-Gen
-  split: test
-  revision: main
+  dataset_name: ../dataset/train_split.csv
+  split: train
+  revision: null
   shuffle: True
   max_samples: 
 
   directions:
-    - dataset_config: default
-      source_column: eng_Latn
-      target_column: npi_Deva
-      source_language: English
-      target_language: Nepali
-
-    - dataset_config: default
-      source_column: npi_Deva
-      target_column: eng_Latn
-      source_language: Nepali
+    # Tamang to English
+    - dataset_config: train_split.csv
+      source_column: translation_tmg
+      target_column: translation_en
+      source_language: Tamang
       target_language: English
 
-    - dataset_config: default
-      source_column: eng_Latn
-      target_column: hin_Deva
+    # English to Tamang
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: translation_tmg
       source_language: English
-      target_language: Hindi
+      target_language: Tamang
 
-    - dataset_config: default
-      source_column: hin_Deva
-      target_column: eng_Latn
-      source_language: Hindi
-      target_language: English
-
-    - dataset_config: default
-      source_column: npi_Deva
-      target_column: hin_Deva
+    # Nepali to Tamang
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_tmg
       source_language: Nepali
-      target_language: Hindi
+      target_language: Tamang
 
-    - dataset_config: default
-      source_column: hin_Deva
-      target_column: npi_Deva
-      source_language: Hindi
+    # Tamang to Nepali
+    - dataset_config: train_split.csv
+      source_column: translation_tmg
+      target_column: relevant_sentences
+      source_language: Tamang
       target_language: Nepali
 
 
 prompt:
-  strategy: zero_shot             # zero_shot | few_shot
-  system_instruction: >
-    You are an English-to-Nepali translator. Return only the Nepali translation,
-    without explanation.
-  user_template: >
-    Translate the following English sentence into Nepali.
+  strategy: rag_few_shot             # zero_shot | few_shot | COT | rag_few_shot
+  direction: en_np
+  examples:
+    en_np:
+      - source: Good morning.
+        target: शुभ प्रभात।
 
-    {source}
+      - source: How are you?
+        target: तपाईंलाई कस्तो छ?
+
+      - source: Thank you very much.
+        target: धेरै धेरै धन्यवाद।
+
+    en_tmg:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+    
+    np_en:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+    
+    np_tmg:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+    tmg_np:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+    tmg_en:
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+      - source: 
+        target: 
+
+rag:
+  index_path: ../embeddging_index
+  rebuild: False
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  index_batch_size: 64
+
+  top_k: 3
+  candidate_k: 6
+  collection_name: translation_embeddings
 
 training:
   method: qlora
   completion_loss: True
-  output_dir: outputs/adapter/Gemma
+  output_dir: ../output/adapter/Qwen
   learning_rate: 0.0001
-  num_train_epochs: 2
+  num_train_epochs: 1
   lora_rank: 16
   lora_alpha: 32
   lora_dropout: 0.05
   batch_size: 2
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 4
   warmup_steps: 50
   logging_steps: 10
   optim: adamw_8bit

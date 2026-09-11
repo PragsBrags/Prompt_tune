@@ -1,6 +1,7 @@
 from unsloth import FastLanguageModel
 from trl import SFTTrainer, SFTConfig
 from transformers import TrainingArguments
+import wandb
 
 from data.data_loader import load_translation_data
 from training.format_data import train_message
@@ -44,8 +45,14 @@ def train_model(cfg):
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
+        eval_dataset=None,
         processing_class=tokenizer,
         args=SFTConfig(
+            report_to="wandb",
+            run_name=wandb.run.name,
+            eval_strategy="steps",
+            eval_steps=cfg.training.eval_steps,
+            
             completion_only_loss=cfg.training.completion_loss,
             seed=cfg.run.seed,
             data_seed=cfg.run.seed,

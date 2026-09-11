@@ -1,8 +1,11 @@
+import wandb
+
 from inference.generator import translate
 from evaluation.metrics import compute_all_metrics
 from data.data_loader import load_translation_data
 from inference.model_loader import load_model
-from prompting.shot_prompts import build_messages_zero, build_messages_3
+from retrieval.retriever import TranslationRetriever
+from prompting.shot_prompts import build_messages_zero, build_messages_3, build_messages_rag
 
 
 def run_evaluation(cfg):
@@ -10,6 +13,8 @@ def run_evaluation(cfg):
     prediction = []
     references = []
     sources = []
+    source_languages = []
+    target_languages = []
 
     dataset = load_translation_data(
         cfg.eval_data,
@@ -30,6 +35,9 @@ def run_evaluation(cfg):
 
             source = sample["source"]
             target = sample["target"]
+            
+            source_languages.append(sample["source_language"])
+            target_languages.append(sample["target_language"])
 
             if cfg.prompt.strategy == "zero_shot":
                 messages = build_messages_zero(
@@ -38,9 +46,34 @@ def run_evaluation(cfg):
                     sample["target_language"]
                 )
 
-            elif cfg.prompt.strategy == "3_shot":
-                messages = build_messages_3(source)
+            elif cfg.prompt.strategy == "few_shot":
+                pair = cfg.prompt.direction
+                examples = cfg.prompt.examples[pair]
+                messages = build_messages_3(
+                    examples, 
+                    sample["source_language"], 
+                    sample["target_language"], 
+                    source
+                )
 
+            elif cfg.prompt.strategy == "rag_few_shot":
+                retriever = TranslationRetriever(cfg.rag)
+                
+                examples = retriever.retrieve(
+                source_text=source,
+                source_lang=sample["source_language"],
+                target_lang=sample["target_language"],
+                )
+
+                messages = build_messages_rag(
+                    examples,
+                    sample["source_language"],
+                    sample["target_language"],
+                    source,
+                )
+
+                print(messages)
+                
             else:
                 raise ValueError(
                     f"Unknown prompt strategy: {cfg.prompt.strategy}"
@@ -61,5 +94,37 @@ def run_evaluation(cfg):
         print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
 
     score = compute_all_metrics(sources, prediction, references)
+    
+    wandb.log({
+        f"eval/{name}": value
+        for name, value in score.items()
+        if value is not None
+    })
+
+    n = min(cfg.wandb.sample_prediction_rows, len(prediction))
+
+    rows = [
+        [
+            source_languages[i],
+            target_languages[i],
+            sources[i],
+            references[i],
+            prediction[i],
+        ]
+        for i in range(n)
+    ]
+
+    table = wandb.Table(
+        columns=[
+            "source_language",
+            "target_language",
+            "source",
+            "reference",
+            "prediction",
+        ],
+        data=rows,
+    )
+
+    wandb.log({"eval/predictions": table})
 
     return score
