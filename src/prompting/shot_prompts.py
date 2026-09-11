@@ -1,14 +1,29 @@
 def build_messages_zero(source_text: str, source_lang, target_lang):
     return [
-        {"role": "system", "content":"You are a professional multilingual translator."
-                            "Return only the translation and no further explanation"},
+        {"role": "system", "content":(
+                                "You are a professional multilingual translator."
+                                "Return only the translation and no further explanation"
+                                )
+                            },
         {"role": "user", "content": f"Translate from {source_lang} "
                                     f"to {target_lang}.\n\n"
                                     f"{source_text}"
                                     }
     ]
 
-def build_messages_3(source_text:str):
+def build_messages_3(examples, source_lang, target_lang, source_text):
+
+    shot_examples = []
+
+    for i, example in enumerate(examples, start = 1):
+        shot_examples.append(
+            f"Example{i}\n"
+            f"{source_lang}: {example.source}\n"
+            f"{target_lang}: {example.target}"
+        )
+
+    shot_examples = "\n".join(shot_examples)
+
     return [
         {"role": "system", "content":"You are a language translator that translates English to Nepali without any explanation. You will only provide the translated text"},
 
