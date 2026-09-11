@@ -74,8 +74,6 @@ def run_evaluation(cfg):
                 )
 
             elif cfg.prompt.strategy == "rag_few_shot":
-                retriever = TranslationRetriever(cfg.rag)
-                
                 examples = retriever.retrieve(
                 source_text=source,
                 source_lang=sample["source_language"],
@@ -112,7 +110,6 @@ def run_evaluation(cfg):
                 )
 
             message_batch.append(messages)
-            sources.append(source)
             references.append(target)
 
         generated = translate(
@@ -128,18 +125,19 @@ def run_evaluation(cfg):
         elif cfg.prompt.strategy == "back_translation":
             # for back-translation, we need to do a second pass to check
             # consistency of the generated translation with the original source
-            reviewd = []
+            reviewed = []
 
             for source, src_lang, tgt_lang, candidate in zip(batch_sources, batch_source_langs, batch_target_langs, generated):
                back_messages = build_messages_back_translation(candidate, src_lang, tgt_lang)
                back_translation = translate(model, tokenizer, [back_messages], cfg.model)[0]
 
                review_messages = build_messages_consistency_review(source, candidate, back_translation, src_lang, tgt_lang)
-               reviewd_translation = translate(model, tokenizer, [review_messages], cfg.model)[0]
-               reviewd.append(reviewd_translation)
-            generated = reviewd
+               reviewed_translation = translate(model, tokenizer, [review_messages], cfg.model)[0]
+               reviewed.append(extract_final_translation(reviewed_translation))
 
-        prediction.extend(reviewd)
+            generated = reviewed
+
+        prediction.extend(generated)
         sources.extend(batch_sources)
         print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
 

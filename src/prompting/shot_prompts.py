@@ -52,6 +52,9 @@ def build_messages_3(examples, source_lang, target_lang, source_text):
     ]
 
 
+def build_messages_rag(examples, source_lang, target_lang, source_text):
+    pass
+
 def build_messages_cot_translation(
     source_text: str,
     source_lang: str,
