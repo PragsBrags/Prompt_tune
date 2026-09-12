@@ -53,7 +53,45 @@ def build_messages_3(examples, source_lang, target_lang, source_text):
 
 
 def build_messages_rag(examples, source_lang, target_lang, source_text):
-    pass
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                f"You are a professional translator from {source_lang} "
+                f"to {target_lang}. Return only the translation."
+            ),
+        }
+    ]
+
+    for example in examples:
+        messages.extend(
+            [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Translate from {source_lang} to {target_lang}:\n\n"
+                        f"{example.source}"
+                    ),
+                },
+                {
+                    "role": "assistant",
+                    "content": example.target,
+                },
+            ]
+        )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                f"Translate from {source_lang} to {target_lang}:\n\n"
+                f"{source_text}"
+            ),
+        }
+    )
+
+    return messages
+
 
 def build_messages_cot_translation(
     source_text: str,
