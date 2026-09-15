@@ -1,8 +1,14 @@
 transformers
+huggingface-hub
 accelerate
 datasets
 evaluate
 sacrebleu
+bert-score
+nltk
+entmax
+unbabel-comet>=2.2.2
+numpy>=1.26.0,<2.0.0
 torch
 bitsandbytes
 hydra-core
