@@ -14,6 +14,10 @@ from prompting.shot_prompts import (
     build_messages_consistency_review,
     build_messages_cot_translation,
     build_messages_zero,
+    build_messages_expert_language_specific,
+    build_messages_self_refinement_initial,
+    build_messages_self_refinement_refine,
+    build_messages_pivot,
     extract_final_translation,
 )
 
@@ -63,6 +67,23 @@ def run_evaluation(cfg):
                     sample["source_language"],
                     sample["target_language"]
                 )
+            elif cfg.prompt.strategy == "expert_language_specific":
+                # optional domain and formality may be present in cfg.prompt
+                domain = getattr(cfg.prompt, "domain", None)
+                formality = getattr(cfg.prompt, "formality", None)
+                messages = build_messages_expert_language_specific(
+                    source,
+                    sample["source_language"],
+                    sample["target_language"],
+                    domain=domain,
+                    formality=formality,
+                )
+            elif cfg.prompt.strategy == "self_refinement":
+                messages = build_messages_self_refinement_initial(
+                    source,
+                    sample["source_language"],
+                    sample["target_language"],
+                )
             elif cfg.prompt.strategy == "few_shot":
                 pair = cfg.prompt.direction
                 examples = cfg.prompt.examples[pair]
@@ -95,6 +116,14 @@ def run_evaluation(cfg):
                     sample["source_language"],
                     sample["target_language"]
                 )
+            elif cfg.prompt.strategy == "pivot":
+                pivot_lang = getattr(cfg.prompt, "pivot_language", "English")
+                messages = build_messages_pivot(
+                    source,
+                    sample["source_language"],
+                    sample["target_language"],
+                    pivot_lang=pivot_lang,
+                )
             elif cfg.prompt.strategy == "back_translation":
                 # forward pass uses a plain zero-shot prompt; the back-translation
                 # + consistency review happens after generation, below
@@ -121,6 +150,16 @@ def run_evaluation(cfg):
 
         if cfg.prompt.strategy == "cot_translation":
             generated = [extract_final_translation(g) for g in generated]
+
+        elif cfg.prompt.strategy == "self_refinement":
+            # perform a second pass where the model critiques and refines
+            refined = []
+            for source, src_lang, tgt_lang, candidate in zip(batch_sources, batch_source_langs, batch_target_langs, generated):
+                review_messages = build_messages_self_refinement_refine(candidate, source, src_lang, tgt_lang)
+                reviewed_translation = translate(model, tokenizer, [review_messages], cfg.model)[0]
+                refined.append(reviewed_translation.strip())
+
+            generated = refined
 
         elif cfg.prompt.strategy == "back_translation":
             # for back-translation, we need to do a second pass to check

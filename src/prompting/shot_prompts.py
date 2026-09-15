@@ -11,6 +11,119 @@ def build_messages_zero(source_text: str, source_lang, target_lang):
                                     }
     ]
 
+def build_messages_expert_language_specific(
+    source_text: str,
+    source_lang: str,
+    target_lang: str,
+    domain: str = None,
+    formality: str = None,
+):
+    """Build a prompt that asks an expert, language-specific translator to
+    pay attention to domain-specific terminology and desired formality.
+    """
+    domain_text = f" Use domain-specific terminology for {domain}." if domain else ""
+    formality_text = f" Use {formality} formality." if formality else ""
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                f"You are a world-class {source_lang}-to-{target_lang} translator."
+                " Return only the translated text and no extra explanation."
+                + domain_text
+                + formality_text
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Translate from {source_lang} to {target_lang} with attention to the"
+                f" constraints above.\n\n{source_text}"
+            ),
+        },
+    ]
+
+
+def build_messages_self_refinement_initial(
+    source_text: str,
+    source_lang: str,
+    target_lang: str,
+):
+    """Initial pass for self-refinement: produce a candidate translation."""
+    return [
+        {
+            "role": "system",
+            "content": (
+                f"You are a professional translator from {source_lang} to {target_lang}."
+                " Return only the translated text and no explanation."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Translate this {source_lang} sentence into {target_lang}:\n\n{source_text}",
+        },
+    ]
+
+
+def build_messages_self_refinement_refine(
+    candidate_translation: str,
+    source_text: str,
+    source_lang: str,
+    target_lang: str,
+    guidance: str = None,
+):
+    """Ask the model to critique and improve its own candidate translation.
+    The response should be the improved translation only.
+    """
+    guidance_text = f"Guidance: {guidance}\n\n" if guidance else ""
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                f"You are a meticulous translator who improves draft translations."
+                " Compare the candidate against the original and produce an improved"
+                " translation. Return only the final translation."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Original {source_lang}: {source_text}\n"
+                f"Candidate {target_lang}: {candidate_translation}\n\n"
+                f"{guidance_text}Provide an improved {target_lang} translation only."
+            ),
+        },
+    ]
+
+
+def build_messages_pivot(
+    source_text: str,
+    source_lang: str,
+    target_lang: str,
+    pivot_lang: str = "English",
+):
+    """Ask the model to translate via a pivot language. The model should
+    internally translate to the pivot language and then to the target, and
+    return only the final translation.
+    """
+    return [
+        {
+            "role": "system",
+            "content": (
+                f"You are a translator. To improve translation quality, first translate"
+                f" the {source_lang} input into {pivot_lang}, then translate that result"
+                f" into {target_lang}. Return only the final {target_lang} translation."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Translate from {source_lang} to {target_lang} by pivoting through {pivot_lang}:\n\n{source_text}"
+            ),
+        },
+    ]
+    
 def build_messages_3(examples, source_lang, target_lang, source_text):
 
     shot_examples = []
