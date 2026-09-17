@@ -54,7 +54,8 @@ def train_model(cfg):
         args=SFTConfig(
             report_to="wandb",
             run_name=wandb.run.name,
-            eval_strategy="epoch",
+            eval_strategy="steps",
+            eval_steps=cfg.training.eval_steps,
             
             completion_only_loss=cfg.training.completion_loss,
             seed=cfg.run.seed,

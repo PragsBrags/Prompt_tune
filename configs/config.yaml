@@ -222,5 +222,6 @@ training:
   gradient_accumulation_steps: 4
   warmup_steps: 50
   logging_steps: 10
+  eval_steps: 10
   # SFTConfig/Transformers optimizer. Common valid values: adamw_8bit, adamw_torch, adamw_torch_fused, paged_adamw_8bit.
   optim: adamw_8bit
