@@ -93,12 +93,12 @@ def main(cfg: DictConfig):
             save_model(model, tokenizer, cfg.run)
 
             logruns.log_run(
-                        cfg.model.name,
-                        cfg.run.mode,
-                        cfg.train_data.dataset_name,
-                        None,
-                        cfg.training,
-                                )
+                cfg.model.name,
+                cfg.run.mode,
+                cfg.train_data.dataset_name,
+                None,
+                OmegaConf.to_container(cfg.training, resolve=True),
+            )
 
             print("training complete and model saved")
 
