@@ -3,7 +3,7 @@ from trl import SFTTrainer, SFTConfig
 from transformers import TrainingArguments
 import wandb
 
-from data.data_loader import load_translation_data
+from data.data_loader import load_train_and_validation_data
 from training.format_data import train_message
 
 
@@ -39,18 +39,22 @@ def load_model(cfg_model, cfg):
 
 def train_model(cfg):
     model, tokenizer = load_model(cfg.model,cfg)
-    data = load_translation_data(cfg.train_data, cfg.run.seed)
+    data, valid_data = load_train_and_validation_data(
+        cfg.train_data,
+        cfg.run.seed,
+    )
     dataset = train_message(data)
+    valid_dataset = train_message(valid_data)
 
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
-        eval_dataset=None,
+        eval_dataset=valid_dataset,
         processing_class=tokenizer,
         args=SFTConfig(
             report_to="wandb",
             run_name=wandb.run.name,
-            eval_strategy="no",
+            eval_strategy="epoch",
             
             completion_only_loss=cfg.training.completion_loss,
             seed=cfg.run.seed,
