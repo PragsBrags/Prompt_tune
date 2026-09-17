@@ -1,4 +1,6 @@
 import wandb
+import csv
+from pathlib import Path
 
 from inference.generator import translate
 from inference.model_loader import load_model
@@ -74,6 +76,9 @@ def run_evaluation(cfg):
                 )
 
             elif cfg.prompt.strategy == "rag_few_shot":
+                if retriever is None:
+                    raise RuntimeError("Retriever is required for rag_few_shot strategy")
+
                 examples = retriever.retrieve(
                 source_text=source,
                 source_lang=sample["source_language"],
@@ -86,8 +91,6 @@ def run_evaluation(cfg):
                     sample["target_language"],
                     source,
                 )
-
-                print(messages)
 
             elif cfg.prompt.strategy == "cot_translation":
                 messages = build_messages_cot_translation(
@@ -141,6 +144,19 @@ def run_evaluation(cfg):
         sources.extend(batch_sources)
         print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
 
+    
+    output_file = cfg.model.name + "_" + cfg.model.source + "_"
+    safe_model_name = cfg.model.name.replace("/", "__")
+    full_path = Path(cfg.eval_data.model_output) / f"{safe_model_name}_{cfg.model.source}.csv"
+    full_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+    with open(full_path, mode="w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["source", "prediction", "reference"])
+        for src, pred, ref in zip(sources, prediction, references):
+            writer.writerow([src, pred, ref])
+
     score = compute_all_metrics(sources, prediction, references)
     
     wandb.log({
@@ -148,31 +164,5 @@ def run_evaluation(cfg):
         for name, value in score.items()
         if value is not None
     })
-
-    n = min(cfg.wandb.sample_prediction_rows, len(prediction))
-
-    rows = [
-        [
-            source_languages[i],
-            target_languages[i],
-            sources[i],
-            references[i],
-            prediction[i],
-        ]
-        for i in range(n)
-    ]
-
-    table = wandb.Table(
-        columns=[
-            "source_language",
-            "target_language",
-            "source",
-            "reference",
-            "prediction",
-        ],
-        data=rows,
-    )
-
-    wandb.log({"eval/predictions": table})
 
     return score
