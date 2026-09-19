@@ -18,7 +18,7 @@ class TranslationRetriever:
     def __init__(self, rag_cfg):
         self.top_k = rag_cfg.top_k
         self.candidate_k = rag_cfg.candidate_k
-        self.client = chromadb.PersistentClient(path=rag_cfg.index_path)
+        self.client = chromadb.PersistentClient(path=to_absolute_path(rag_cfg.index_path))
         self.collection = self.client.get_collection(name=rag_cfg.collection_name)
         self.embedding = SentenceTransformer(rag_cfg.embedding_model)
 

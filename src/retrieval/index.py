@@ -26,7 +26,7 @@ def build_index(cfg):
     if cfg.rag.rebuild:
         try:
             client.delete_collection(cfg.rag.collection_name)
-        except ValueError:
+        except (ValueError, chromadb.errors.NotFoundError):
             pass
 
     collection = client.get_or_create_collection(

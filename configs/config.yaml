@@ -1,156 +1,231 @@
-run:
-  mode: evaluate                  # evaluate | train | index
-  seed: 42
-  output_dir: ../output/gguf_model/Gemma
-  adapter_dir: ../output/adapter/Gemma
-  merged_dir: ../output/merged/Gemma
+# Project configuration for the Tamang translation pipeline.
+# Path convention: run `cd src; python cli.py`; all relative paths below resolve from src.
 
+run:
+  # Pipeline stage. Valid values: train | evaluate | index (build Chroma).
+  mode: train
+  # Integer random seed for model, dataset sampling, and shuffling.
+  seed: 42
+  # Writable destination for GGUF Q4_K_M export; used only by train.
+  output_dir: ../output/gguf_model/Qwen
+  # Writable destination for PEFT/LoRA adapter and tokenizer; used only by train.
+  adapter_dir: ../output/adapter/Qwen
+  # Writable destination for merged 16-bit model and tokenizer; use as model.model_path for merged evaluation.
+  merged_dir: ../output/merged/Qwen
 
 wandb:
+  # W&B project name used for run metadata, training logs, and evaluation metrics.
   project: ilprl-tamang-translation
-  entity: null             # Set this only if your team uses a W&B entity.
-  mode: online             # online | offline | disabled
+  # W&B user/team slug, or null to use the authenticated user's default entity.
+  entity: null
+  # W&B mode. Valid values: online (upload), offline (store locally), disabled (no W&B run).
+  mode: online
+  # Optional W&B grouping label for related runs.
   group: qwen3.5-4b-qlora
-  sample_prediction_rows: 100
 
 model:
-  source: merged                    # base | merged
+  #Valid values: base (load `name` from Hugging Face) | merged (load local `model_path`).
+  source: base
+  # Hugging Face model ID for base mode and the model label in logs/output filenames.
   name: Qwen/Qwen3.5-4B
-  model_path: ./output/merged/Gemma
+  # Local merged-model directory; required for source: merged and ignored for source: base.
+  model_path: ../output/merged/Qwen
   quantization:
-    enabled: True
-    load_in_4bit: True
-  thinking: False
+    # Whether evaluation passes a BitsAndBytes quantization configuration. Valid values: true, false.
+    enabled: true
+    # Whether that configuration loads 4-bit weights. Valid values: true, false; ignored if disabled.
+    load_in_4bit: true
+  # Whether the tokenizer chat template enables model thinking. Valid values: true, false.
+  thinking: false
+  # Positive maximum sequence length for Unsloth/SFT training; lower values reduce memory use.
   max_seq_length: 256
 
 eval_data:
   dataset_name: ../dataset/eval_split.csv
+  # Datasets split for a local CSV. Use train for this CSV builder configuration.
   split: train
   revision: main
-  shuffle: False
+  shuffle: false
+  # Positive number of prompts generated together; lower it if GPU memory is exhausted.
   batch_size: 8
-
+  # Writable directory for <safe-model-name>_<source>.csv; runner.py creates it when needed.
+  model_output: ../output/eval_results
+  # One or more directed mappings. Each maps the same CSV to source/target records and concatenates them.
   directions:
-  - dataset_config: eval_split.csv
-    source_column: translation_tmg
-    target_column: translation_en
-    source_language: Tamang
-    target_language: English
+    - dataset_config: eval_split.csv
+      source_column: translation_tmg
+      target_column: translation_en
+      source_language: Tamang
+      target_language: English
 
 train_data:
+  # Training CSV. Every configured source_column and target_column must be an existing header.
   dataset_name: ../dataset/train_split.csv
+  # Held-out validation CSV. It must have the same columns used by directions below;
+  # the training loader applies these same direction mappings to this file.
+  valid_name: ../dataset/valid_split.csv
+  # Datasets split for a local CSV. Use train for this CSV builder configuration.
   split: train
   revision: null
-  shuffle: True
-  max_samples: 
+  # Deterministically shuffle concatenated directions with run.seed. Valid values: true, false.
+  shuffle: true
 
   directions:
-    # Tamang to English
+    # Tamang to English mapping.
     - dataset_config: train_split.csv
       source_column: translation_tmg
       target_column: translation_en
       source_language: Tamang
       target_language: English
 
-    # English to Tamang
+    # English to Tamang mapping.
     - dataset_config: train_split.csv
       source_column: translation_en
       target_column: translation_tmg
       source_language: English
       target_language: Tamang
 
-    # Nepali to Tamang
+    # Nepali to Tamang mapping.
     - dataset_config: train_split.csv
       source_column: relevant_sentences
       target_column: translation_tmg
       source_language: Nepali
       target_language: Tamang
 
-    # Tamang to Nepali
+    # Tamang to Nepali mapping.
     - dataset_config: train_split.csv
       source_column: translation_tmg
       target_column: relevant_sentences
       source_language: Tamang
       target_language: Nepali
 
+    # English to Nepali mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: relevant_sentences
+      source_language: English
+      target_language: Nepali
+
+    # Nepali to English mapping.
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_en
+      source_language: Nepali
+      target_language: English
 
 prompt:
-  strategy: rag_few_shot             # zero_shot | few_shot | COT | rag_few_shot | cot_translation | back_translation
+  # Evaluation strategy. Valid values: zero_shot, few_shot, rag_few_shot, cot_translation, back_translation.
+  strategy: zero_shot
+  # Examples-map key used only by few_shot. Must exactly match a key under examples.
   direction: en_np
   examples:
+    # English to Nepali demonstrations, selected by direction: en_np.
     en_np:
-      - source: Good morning.
-        target: शुभ प्रभात।
+      # Example source text.
+      - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
+        # Paired example target text.
+        target: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
+      # Example source text.
+      - source: This school is one of the oldest schools in the district.
+        # Paired example target text.
+        target: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
+      # Example source text.
+      - source: We are grateful to our viewers.
+        # Paired example target text.
+        target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
 
-      - source: How are you?
-        target: तपाईंलाई कस्तो छ?
-
-      - source: Thank you very much.
-        target: धेरै धेरै धन्यवाद।
-
+    # English to Tamang demonstrations; replace blank source/target values before choosing en_tmg.
     en_tmg:
-      - source: 
-        target: 
+      # Example source text.
+      - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
+        # Paired example target text.
+        target: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
+      # Example source text.
+      - source: This school is one of the oldest schools in the district.
+        # Paired example target text.
+        target: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
+      # Example source text.
+      - source: We are grateful to our viewers.
+        # Paired example target text.
+        target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
 
-      - source: 
-        target: 
-
-      - source: 
-        target: 
-    
+    # Nepali to English demonstrations; replace blank source/target values before choosing np_en.
     np_en:
-      - source: 
-        target: 
+      # Example source text.
+      - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
+        # Paired example target text.
+        target: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
+      # Example source text.
+      - source: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
+        # Paired example target text.
+        target: This school is one of the oldest schools in the district.
+      # Example source text.
+      - source: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
+        # Paired example target text.
+        target: We are grateful to our viewers.
 
-      - source: 
-        target: 
-
-      - source: 
-        target: 
-    
+    # Nepali to Tamang demonstrations; replace blank source/target values before choosing np_tmg.
     np_tmg:
-      - source: 
-        target: 
+      # Example source text.
+      - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
+        # Paired example target text.
+        target: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
+      # Example source text.
+      - source: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
+        # Paired example target text.
+        target: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
+      # Example source text.
+      - source: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
+        # Paired example target text.
+        target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
 
-      - source: 
-        target: 
-
-      - source: 
-        target: 
-
+    # Tamang to Nepali demonstrations; replace blank source/target values before choosing tmg_np.
     tmg_np:
-      - source: 
-        target: 
+      # Example source text.
+      - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
+        # Paired example target text.
+        target: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
+      # Example source text.
+      - source: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
+        # Paired example target text.
+        target: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
+      # Example source text.
+      - source: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
+        # Paired example target text.
+        target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
 
-      - source: 
-        target: 
-
-      - source: 
-        target: 
-
+    # Tamang to English demonstrations; replace blank source/target values before choosing tmg_en.
     tmg_en:
-      - source: 
-        target: 
-
-      - source: 
-        target: 
-
-      - source: 
-        target: 
+      # Example source text.
+      - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
+        # Paired example target text.
+        target: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
+      # Example source text.
+      - source: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
+        # Paired example target text.
+        target: This school is one of the oldest schools in the district.
+      # Example source text.
+      - source: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
+        # Paired example target text.
+        target: We are grateful to our viewers.
 
 rag:
+  # Persistent Chroma directory. Indexing and rag_few_shot evaluation must use exactly the same path.
   index_path: ../embeddging_index
-  rebuild: False
+  # Delete the named collection before indexing. Valid values: true, false; use true after corpus/model changes.
+  rebuild: false
   embedding_model: sentence-transformers/all-MiniLM-L6-v2
   index_batch_size: 64
-
   top_k: 3
   candidate_k: 6
+  # Persistent Chroma collection name. Indexing and retrieval must use the identical name.
   collection_name: translation_embeddings
 
 training:
   method: qlora
-  completion_loss: True
+  # Compute SFT loss only on assistant completion tokens. Valid values: true, false.
+  completion_loss: true
+  # SFTTrainer checkpoint/output directory, separate from the final run.* model export directories.
   output_dir: ../output/adapter/Qwen
   learning_rate: 0.0001
   num_train_epochs: 1
@@ -161,4 +236,6 @@ training:
   gradient_accumulation_steps: 4
   warmup_steps: 50
   logging_steps: 10
+  eval_steps: 10
+  # SFTConfig/Transformers optimizer. Common valid values: adamw_8bit, adamw_torch, adamw_torch_fused, paged_adamw_8bit.
   optim: adamw_8bit

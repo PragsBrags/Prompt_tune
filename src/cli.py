@@ -68,6 +68,7 @@ def main(cfg: DictConfig):
                 cfg.model.name,
                 cfg.run.mode,
                 cfg.eval_data.dataset_name,
+                cfg.run.seed,
                 cfg.eval_data.directions[0].dataset_config,
                 None,
                 )
@@ -76,7 +77,11 @@ def main(cfg: DictConfig):
 
             logruns.log_eval(
                 cfg.model.name,
-                results
+                cfg.eval_data.directions[0].source_column,
+                cfg.eval_data.directions[0].target_column,
+                cfg.prompt.strategy,
+                cfg.model.source,
+                results,
             )
 
         elif cfg.run.mode == "train":
@@ -86,19 +91,20 @@ def main(cfg: DictConfig):
             logruns = ExpLogger("train_experiments")
             set_seed(cfg.run.seed, deterministic=True)
 
+            logruns.log_run(
+                cfg.model.name,
+                cfg.run.mode,
+                cfg.train_data.dataset_name,
+                cfg.run.seed,
+                None,
+                OmegaConf.to_container(cfg.training, resolve=True),
+                )
+
             model, tokenizer = train_model(cfg)
 
             print("training complete")
 
             save_model(model, tokenizer, cfg.run)
-
-            logruns.log_run(
-                        cfg.model.name,
-                        cfg.run.mode,
-                        cfg.train_data.dataset_name,
-                        None,
-                        cfg.training,
-                                )
 
             print("training complete and model saved")
 

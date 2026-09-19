@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir \
 
 COPY . /app
 
-ENV PYTHONUNBUFFEREF=1 \
+ENV PYTHONUNBUFFERED=1 \
     HF_HOME=/cache/huggingface \
     NLTK_DATA=/cache/nltk_data \
     TOKENIZERS_PARALLELISM=false

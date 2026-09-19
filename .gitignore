@@ -7,3 +7,5 @@ train_experiments/
 wandb/
 embeddging_index/
 venvn
+.venv/
+venv/
