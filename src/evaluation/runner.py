@@ -144,10 +144,9 @@ def run_evaluation(cfg):
         sources.extend(batch_sources)
         print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
 
-    
-    output_file = cfg.model.name + "_" + cfg.model.source + "_"
     safe_model_name = cfg.model.name.replace("/", "__")
-    full_path = Path(cfg.eval_data.model_output) / f"{safe_model_name}_{cfg.model.source}.csv"
+    output_file = safe_model_name + "_" + cfg.model.source + "_" + cfg.prompt.strategy + "_" + cfg.eval_data.directions[0].source_column + "_" + cfg.eval_data.directions[0].target_column
+    full_path = Path(cfg.eval_data.model_output) / f"{output_file}.csv"
     full_path.parent.mkdir(parents=True, exist_ok=True)
 
 

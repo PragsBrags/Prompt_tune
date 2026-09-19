@@ -99,6 +99,20 @@ train_data:
       source_language: Tamang
       target_language: Nepali
 
+    # English to Nepali mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: relevant_sentences
+      source_language: English
+      target_language: Nepali
+
+    # Nepali to English mapping.
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_en
+      source_language: Nepali
+      target_language: English
+
 prompt:
   # Evaluation strategy. Valid values: zero_shot, few_shot, rag_few_shot, cot_translation, back_translation.
   strategy: zero_shot
@@ -108,92 +122,92 @@ prompt:
     # English to Nepali demonstrations, selected by direction: en_np.
     en_np:
       # Example source text.
-      - source: Good morning.
+      - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
         # Paired example target text.
-        target: शुभ प्रभात।
+        target: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
       # Example source text.
-      - source: How are you?
+      - source: This school is one of the oldest schools in the district.
         # Paired example target text.
-        target: तपाईंलाई कस्तो छ?
+        target: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
       # Example source text.
-      - source: Thank you very much.
+      - source: We are grateful to our viewers.
         # Paired example target text.
-        target: धेरै धेरै धन्यवाद।
+        target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
 
     # English to Tamang demonstrations; replace blank source/target values before choosing en_tmg.
     en_tmg:
       # Example source text.
-      - source:
+      - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
         # Paired example target text.
-        target:
+        target: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
       # Example source text.
-      - source:
+      - source: This school is one of the oldest schools in the district.
         # Paired example target text.
-        target:
+        target: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
       # Example source text.
-      - source:
+      - source: We are grateful to our viewers.
         # Paired example target text.
-        target:
+        target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
 
     # Nepali to English demonstrations; replace blank source/target values before choosing np_en.
     np_en:
       # Example source text.
-      - source:
+      - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
         # Paired example target text.
-        target:
+        target: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
       # Example source text.
-      - source:
+      - source: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
         # Paired example target text.
-        target:
+        target: This school is one of the oldest schools in the district.
       # Example source text.
-      - source:
+      - source: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
         # Paired example target text.
-        target:
+        target: We are grateful to our viewers.
 
     # Nepali to Tamang demonstrations; replace blank source/target values before choosing np_tmg.
     np_tmg:
       # Example source text.
-      - source:
+      - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
         # Paired example target text.
-        target:
+        target: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
       # Example source text.
-      - source:
+      - source: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
         # Paired example target text.
-        target:
+        target: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
       # Example source text.
-      - source:
+      - source: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
         # Paired example target text.
-        target:
+        target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
 
     # Tamang to Nepali demonstrations; replace blank source/target values before choosing tmg_np.
     tmg_np:
       # Example source text.
-      - source:
+      - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
         # Paired example target text.
-        target:
+        target: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
       # Example source text.
-      - source:
+      - source: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
         # Paired example target text.
-        target:
+        target: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
       # Example source text.
-      - source:
+      - source: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
         # Paired example target text.
-        target:
+        target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
 
     # Tamang to English demonstrations; replace blank source/target values before choosing tmg_en.
     tmg_en:
       # Example source text.
-      - source:
+      - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
         # Paired example target text.
-        target:
+        target: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
       # Example source text.
-      - source:
+      - source: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
         # Paired example target text.
-        target:
+        target: This school is one of the oldest schools in the district.
       # Example source text.
-      - source:
+      - source: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
         # Paired example target text.
-        target:
+        target: We are grateful to our viewers.
 
 rag:
   # Persistent Chroma directory. Indexing and rag_few_shot evaluation must use exactly the same path.
