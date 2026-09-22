@@ -1,3 +1,42 @@
+LANGUAGE_CODES = {
+    "english": "en",
+    "en": "en",
+    "nepali": "np",
+    "np": "np",
+    "tamang": "tmg",
+    "tmg": "tmg",
+}
+
+
+def few_shot_direction_key(source_lang: str, target_lang: str) -> str:
+    """Return the examples-map key for a configured language direction.
+
+    The key is derived from the row's language metadata instead of a global
+    setting, so a mixed-direction evaluation always receives matching shots.
+    """
+    try:
+        source_code = LANGUAGE_CODES[source_lang.strip().lower()]
+        target_code = LANGUAGE_CODES[target_lang.strip().lower()]
+    except (AttributeError, KeyError) as error:
+        raise ValueError(
+            "Cannot select few-shot examples for "
+            f"{source_lang!r} -> {target_lang!r}. Supported languages are "
+            "English, Nepali, and Tamang."
+        ) from error
+    return f"{source_code}_{target_code}"
+
+
+def get_few_shot_examples(examples, source_lang: str, target_lang: str):
+    """Fetch demonstrations matching a source/target language pair."""
+    direction_key = few_shot_direction_key(source_lang, target_lang)
+    if direction_key not in examples:
+        raise ValueError(
+            f"Missing prompt.examples.{direction_key} for "
+            f"{source_lang} -> {target_lang}."
+        )
+    return examples[direction_key]
+
+
 def build_messages_zero(source_text: str, source_lang, target_lang):
     return [
         {"role": "system", "content":(

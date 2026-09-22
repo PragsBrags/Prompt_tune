@@ -1,12 +1,13 @@
 from datasets import load_dataset, concatenate_datasets
 
 
-def _load_translation_dataset(dataset_cfg, dataset_path, seed):
-    """Load one CSV path using the direction mappings in ``dataset_cfg``."""
+def _load_translation_dataset(dataset_cfg, dataset_path, seed, directions=None):
+    """Load one CSV path using one or more mappings from ``dataset_cfg``."""
     datasets = []
     max_samples = getattr(dataset_cfg, "max_samples", None)
+    directions = dataset_cfg.directions if directions is None else directions
 
-    for direction in dataset_cfg.directions:
+    for direction in directions:
         ds = load_dataset(
             "csv",
             data_files=dataset_path,
@@ -38,8 +39,23 @@ def _load_translation_dataset(dataset_cfg, dataset_path, seed):
 
 
 def load_translation_data(dataset_cfg, seed):
-    """Load the single dataset path used by evaluation and indexing."""
+    """Load every configured direction from the dataset path.
+
+    Indexing and training deliberately use the concatenated dataset. Evaluation
+    uses :func:`load_translation_data_for_direction` so each direction can have
+    independent generation artifacts and metrics.
+    """
     return _load_translation_dataset(dataset_cfg, dataset_cfg.dataset_name, seed)
+
+
+def load_translation_data_for_direction(dataset_cfg, direction, seed):
+    """Load exactly one configured direction from an evaluation CSV."""
+    return _load_translation_dataset(
+        dataset_cfg,
+        dataset_cfg.dataset_name,
+        seed,
+        directions=[direction],
+    )
 
 
 def load_train_and_validation_data(train_cfg, seed):

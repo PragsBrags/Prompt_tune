@@ -15,7 +15,7 @@ class ExpLogger:
             mode: str,
             dataset:str,
             seed: int,
-            evaluation_direction: Optional[str] = None,
+            evaluation_direction: Optional[Any] = None,
             lora_config: Optional[Any] = None
     ):
         if hasattr(lora_config, "to_dict"):
@@ -46,6 +46,9 @@ class ExpLogger:
             technique: str,
             model_type: str,
             eval_config: Optional[Dict[str, float]] = None,
+            direction_name: Optional[str] = None,
+            prediction_file: Optional[str] = None,
+            scores_file: Optional[str] = None,
     ):
         eval_record = {
             "run_id": f"run_{self.timestamp}",
@@ -56,8 +59,15 @@ class ExpLogger:
             "technique": technique,
             "model_type": model_type,
             "evaluation_scores": eval_config or {},
+            "direction": direction_name,
+            "prediction_file": prediction_file,
+            "scores_file": scores_file,
         }
 
-        filepath = os.path.join(self.log_dir, f"eval{eval_record['run_id']}.json")
+        safe_direction = (direction_name or "all").replace("/", "_").replace("\\", "_")
+        filepath = os.path.join(
+            self.log_dir,
+            f"eval{eval_record['run_id']}_{safe_direction}.json",
+        )
         with open(filepath, "w") as f:
             json.dump(eval_record, f, indent = 4)
