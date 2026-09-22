@@ -90,7 +90,7 @@ cd src
 python cli.py run.mode=train model.source=base wandb.mode=offline
 ```
 
-To evaluate the resulting merged export, point `model.model_path` at `run.merged_dir` and use `model.source=merged`.
+To evaluate the resulting merged export, use `model.source=merged`. `model.model_path` automatically resolves to that model's `run.merged_dir`.
 
 ### Index
 
@@ -123,7 +123,7 @@ Available `prompt.strategy` values:
 
 ```powershell
 cd src
-python cli.py run.mode=evaluate model.source=merged model.model_path=../output/merged/Qwen
+python cli.py run.mode=evaluate model.source=merged
 ```
 
 ## Evaluation CSV and metrics
@@ -164,8 +164,8 @@ An error during model loading or generation prevents artifacts for the affected 
 
 ## Configuration relationships
 
-- `model.source: base` loads `model.name`; `model.source: merged` loads `model.model_path`.
-- After training, set `model.model_path` to `run.merged_dir` to evaluate the merged model.
+- `model.source: base` loads `model.name`; `model.source: merged` loads the model-specific `model.model_path`.
+- Changing `model.name` automatically updates `run.output_dir`, `run.adapter_dir`, `run.merged_dir`, `model.model_path`, and `training.output_dir`.
 - Data-column names must match CSV headers exactly.
 - `rag.top_k` must be no greater than `rag.candidate_k`.
 - Use the same RAG path, collection name, and embedding model for index and retrieval.

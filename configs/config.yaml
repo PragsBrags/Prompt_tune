@@ -6,12 +6,12 @@ run:
   mode: evaluate
   # Integer random seed for model, dataset sampling, and shuffling.
   seed: 42
-  # Writable destination for GGUF Q4_K_M export; used only by train.
-  output_dir: ../output/gguf_model/Qwen
-  # Writable destination for PEFT/LoRA adapter and tokenizer; used only by train.
-  adapter_dir: ../output/adapter/Qwen
-  # Writable destination for merged 16-bit model and tokenizer; use as model.model_path for merged evaluation.
-  merged_dir: ../output/merged/Qwen
+  # Writable destination for this model's GGUF Q4_K_M export; used only by train.
+  output_dir: ../output/gguf_model/${model.name}
+  # Writable destination for this model's PEFT/LoRA adapter and tokenizer; used only by train.
+  adapter_dir: ../output/adapter/${model.name}
+  # Writable destination for this model's merged 16-bit model and tokenizer.
+  merged_dir: ../output/merged/${model.name}
 
 wandb:
   # W&B project name used for run metadata, training logs, and evaluation metrics.
@@ -27,14 +27,20 @@ model:
   #Valid values: base (load `name` from Hugging Face) | merged (load local `model_path`).
   source: merged
   # Hugging Face model ID for base mode and the model label in logs/output filenames.
+  # choices include : meta-llama/Llama-3.2-3B-Instruct
+  # Qwen/Qwen3.5-4B
+  # google/gemma-4-E4B
+  # google/gemma-4-E4B-it
+  # mistralai/Ministral-3-3B-Reasoning-2512
+  # mistralai/Ministral-3-3B-Instruct-2512
   name: Qwen/Qwen3.5-4B
-  # Local merged-model directory; required for source: merged and ignored for source: base.
-  model_path: ../output/merged/Qwen
+  # Local merged-model directory; automatically follows name and is ignored for source: base.
+  model_path: ${run.merged_dir}
   quantization:
     # Whether evaluation passes a BitsAndBytes quantization configuration. Valid values: true, false.
-    enabled: false
+    enabled: true
     # Whether that configuration loads 4-bit weights. Valid values: true, false; ignored if disabled.
-    load_in_4bit: false
+    load_in_4bit: true
   # Whether the tokenizer chat template enables model thinking. Valid values: true, false.
   thinking: false
   # Positive maximum sequence length for Unsloth/SFT training; lower values reduce memory use.
@@ -227,8 +233,8 @@ training:
   method: qlora
   # Compute SFT loss only on assistant completion tokens. Valid values: true, false.
   completion_loss: true
-  # SFTTrainer checkpoint/output directory, separate from the final run.* model export directories.
-  output_dir: ../output/adapter/Qwen
+  # SFTTrainer checkpoint/output directory; automatically follows name via run.adapter_dir.
+  output_dir: ${run.adapter_dir}
   learning_rate: 0.0001
   num_train_epochs: 1
   lora_rank: 16
