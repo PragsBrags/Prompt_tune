@@ -21,7 +21,7 @@ def translate(model,tokenizer,message_batch,cfg_model):
     with torch.inference_mode():
         output = model.generate(
             **inputs,
-            max_new_tokens=128,  # might be low for CoT translation
+            max_new_tokens=256,  # might be low for CoT translation
             do_sample=False,
             pad_token_id=tokenizer.pad_token_id,
         )

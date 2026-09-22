@@ -38,9 +38,9 @@ model:
   model_path: ${run.merged_dir}
   quantization:
     # Whether evaluation passes a BitsAndBytes quantization configuration. Valid values: true, false.
-    enabled: true
+    enabled: false
     # Whether that configuration loads 4-bit weights. Valid values: true, false; ignored if disabled.
-    load_in_4bit: true
+    load_in_4bit: false
   # Whether the tokenizer chat template enables model thinking. Valid values: true, false.
   thinking: false
   # Positive maximum sequence length for Unsloth/SFT training; lower values reduce memory use.
@@ -65,6 +65,41 @@ eval_data:
       target_column: translation_tmg
       source_language: English
       target_language: Tamang
+
+    # English to Tamang mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: translation_tmg
+      source_language: English
+      target_language: Tamang
+
+    # Nepali to Tamang mapping.
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_tmg
+      source_language: Nepali
+      target_language: Tamang
+
+    # Tamang to Nepali mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_tmg
+      target_column: relevant_sentences
+      source_language: Tamang
+      target_language: Nepali
+
+    # English to Nepali mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: relevant_sentences
+      source_language: English
+      target_language: Nepali
+
+    # Nepali to English mapping.
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_en
+      source_language: Nepali
+      target_language: English
 
 
 train_data:
