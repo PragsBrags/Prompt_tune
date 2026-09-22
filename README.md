@@ -65,7 +65,7 @@ The included CSVs have headers including:
 sentence_id,translation_tmg,relevant_sentences,translation_en,...
 ```
 
-Every `source_column` and `target_column` named by a direction must exist in the matching CSV. For each configured direction, the loader maps those columns into the normalized fields `source`, `target`, `source_language`, and `target_language`. It then concatenates every configured direction. The default training configuration creates Tamang → English, English → Tamang, Nepali → Tamang, and Tamang → Nepali examples from one CSV.
+Every `source_column` and `target_column` named by a direction must exist in the matching CSV. For each configured direction, the loader maps those columns into the normalized fields `source`, `target`, `source_language`, and `target_language`. Training and indexing concatenate every configured direction; evaluation keeps directions separate. The default training and evaluation configurations include Tamang ↔ English, Tamang ↔ Nepali, and English ↔ Nepali examples from one CSV.
 
 `train_data.max_samples` caps each direction before concatenation, not the final combined dataset. `shuffle: true` uses `run.seed` for deterministic ordering.
 
@@ -90,7 +90,7 @@ cd src
 python cli.py run.mode=train model.source=base wandb.mode=offline
 ```
 
-To evaluate the resulting merged export, point `model.model_path` at `run.merged_dir` and use `model.source=merged`.
+To evaluate the resulting merged export, use `model.source=merged`. `model.model_path` automatically resolves to that model's `run.merged_dir`.
 
 ### Index
 
@@ -114,30 +114,31 @@ Available `prompt.strategy` values:
 | Strategy | What it does |
 | --- | --- |
 | `zero_shot` | Direct translation instruction. |
-| `few_shot` | Inserts hand-authored examples from `prompt.examples[prompt.direction]`. |
+| `few_shot` | Inserts hand-authored examples from the `prompt.examples` entry matching the row's source and target languages. |
 | `rag_few_shot` | Retrieves language-matched Chroma examples and adds the best `rag.top_k` to the prompt. |
 | `cot_translation` | Requests visible linguistic analysis and extracts the final `Translation:` line. |
 | `back_translation` | Generates forward and reverse translations, then asks the model to review/correct the forward output. |
 
-`few_shot` needs a populated examples mapping for the selected `prompt.direction`. Blank example values are still passed to the prompt, so do not choose one of the placeholder mappings until it is filled in.
+`few_shot` automatically maps English, Nepali, and Tamang pairs to the corresponding `en_np`, `en_tmg`, `np_en`, `np_tmg`, `tmg_np`, or `tmg_en` examples entry. No prompt-direction override is needed. Every configured mapping must be populated before using the strategy.
 
 ```powershell
 cd src
-python cli.py run.mode=evaluate model.source=merged model.model_path=../output/merged/Qwen
+python cli.py run.mode=evaluate model.source=merged
 ```
 
 ## Evaluation CSV and metrics
 
-Once all evaluation batches complete, `src/evaluation/runner.py` writes:
+Evaluation processes each entry in `eval_data.directions` independently. The default configuration contains all six English, Nepali, and Tamang directions. It loads the model once, then writes per-direction artifacts:
 
 ```text
-<eval_data.model_output>/<safe-model-name>_<model.source>.csv
+<eval_data.model_output>/<safe-model-name>_<model.source>_<strategy>_<source-language>_to_<target-language>.csv
+<eval_data.model_output>/<safe-model-name>_<model.source>_<strategy>_<source-language>_to_<target-language>.metrics.json
 ```
 
-With the current configuration, the file is:
+For example, the Tamang-to-English output is:
 
 ```text
-../output/eval_results/Qwen__Qwen3.5-4B_merged.csv
+../output/eval_results/Qwen__Qwen3.5-4B_merged_zero_shot_tamang_to_english.csv
 ```
 
 `/` in a Hugging Face model ID is changed to `__`, so it cannot accidentally create a subdirectory. The file contains aligned rows in this format:
@@ -147,7 +148,7 @@ source,prediction,reference
 <input sentence>,<model translation>,<reference translation>
 ```
 
-The file is opened in write mode, so a second evaluation with the same model name and source overwrites it. The evaluator then attempts BLEU, METEOR, TER, chrF, chrF++, COMET, and multilingual BERTScore. A metric error is handled independently and recorded as `None`; it does not prevent the other metrics from running. The prediction CSV is written before metric calculation.
+The evaluator writes a prediction CSV and a score JSON for every direction, and logs each metric to a matching W&B namespace such as `eval/tamang_to_english/bleu`. It also writes one local `evalrun_..._<direction>.json` log per direction. A repeat run with the same model, strategy, and direction overwrites only that direction's prediction and score artifacts. The evaluator attempts BLEU, METEOR, TER, chrF, chrF++, COMET, and multilingual BERTScore independently; a metric error is recorded as `null` and does not prevent the others from running.
 
 ## Tracking and outputs
 
@@ -157,14 +158,14 @@ With the recommended `src` working directory, local JSON logs are written to:
 
 - `src/train_experiments/run_<timestamp>.json` for a training run, including the training configuration under `lora_parameters`;
 - `src/run_experiments/run_<timestamp>.json` for an evaluation run;
-- `src/run_experiments/evalrun_<timestamp>.json` for evaluation columns, strategy, model source, and scores.
+- `src/run_experiments/evalrun_<timestamp>_<direction>.json` for each direction's columns, strategy, model source, artifact paths, and scores.
 
-An evaluation error during model loading or generation occurs before the CSV write, so no CSV will exist. A metrics-only error occurs after the CSV write and leaves the CSV intact.
+An error during model loading or generation prevents artifacts for the affected direction. Individual metric failures are caught and recorded as `null`, so they do not prevent that direction's CSV and score JSON from being saved.
 
 ## Configuration relationships
 
-- `model.source: base` loads `model.name`; `model.source: merged` loads `model.model_path`.
-- After training, set `model.model_path` to `run.merged_dir` to evaluate the merged model.
+- `model.source: base` loads `model.name`; `model.source: merged` loads the model-specific `model.model_path`.
+- Changing `model.name` automatically updates `run.output_dir`, `run.adapter_dir`, `run.merged_dir`, `model.model_path`, and `training.output_dir`.
 - Data-column names must match CSV headers exactly.
 - `rag.top_k` must be no greater than `rag.candidate_k`.
 - Use the same RAG path, collection name, and embedding model for index and retrieval.

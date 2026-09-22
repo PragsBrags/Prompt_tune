@@ -33,6 +33,19 @@ def validate_config(cfg: DictConfig) -> None:
             f"Unsupported prompt.strategy {cfg.prompt.strategy!r}. "
             f"Expected one of: {sorted(VALID_PROMPT_STRATEGIES)}"
         )
+    if cfg.run.mode == "evaluate" and not cfg.eval_data.directions:
+        raise ValueError("Evaluation requires at least one eval_data.directions entry.")
+    if cfg.run.mode == "evaluate" and cfg.prompt.strategy == "few_shot":
+        # Validate every configured direction before model loading so a missing
+        # demonstration map cannot leave a multi-direction run half-finished.
+        from prompting.shot_prompts import get_few_shot_examples
+
+        for direction in cfg.eval_data.directions:
+            get_few_shot_examples(
+                cfg.prompt.examples,
+                direction.source_language,
+                direction.target_language,
+            )
 
 @hydra.main(
     version_base=None,
@@ -69,20 +82,30 @@ def main(cfg: DictConfig):
                 cfg.run.mode,
                 cfg.eval_data.dataset_name,
                 cfg.run.seed,
-                cfg.eval_data.directions[0].dataset_config,
+                [
+                    {
+                        "dataset_config": result["dataset_config"],
+                        "direction": result["direction"],
+                    }
+                    for result in results.values()
+                ],
                 None,
                 )
-            
-            print(results)
 
-            logruns.log_eval(
-                cfg.model.name,
-                cfg.eval_data.directions[0].source_column,
-                cfg.eval_data.directions[0].target_column,
-                cfg.prompt.strategy,
-                cfg.model.source,
-                results,
-            )
+            for result in results.values():
+                logruns.log_eval(
+                    cfg.model.name,
+                    result["source_column"],
+                    result["target_column"],
+                    cfg.prompt.strategy,
+                    cfg.model.source,
+                    result["scores"],
+                    direction_name=result["direction"],
+                    prediction_file=result["prediction_file"],
+                    scores_file=result["scores_file"],
+                )
+
+            print(results)
 
         elif cfg.run.mode == "train":
             from training.sft import train_model

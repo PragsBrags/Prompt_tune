@@ -1,167 +1,203 @@
-import wandb
 import csv
+import json
+import re
 from pathlib import Path
 
+import wandb
+
+from data.data_loader import load_translation_data_for_direction
+from evaluation.metrics import compute_all_metrics
 from inference.generator import translate
 from inference.model_loader import load_model
-from evaluation.metrics import compute_all_metrics
-
-from data.data_loader import load_translation_data
-from inference.model_loader import load_model
-from retrieval.retriever import TranslationRetriever
 from prompting.shot_prompts import (
     build_messages_3,
-    build_messages_rag,
     build_messages_back_translation,
     build_messages_consistency_review,
     build_messages_cot_translation,
+    build_messages_rag,
     build_messages_zero,
     extract_final_translation,
+    get_few_shot_examples,
 )
+from retrieval.retriever import TranslationRetriever
 
-def run_evaluation(cfg):
 
-    prediction = []
-    references = []
-    sources = []
-    source_languages = []
-    target_languages = []
+def direction_id(direction) -> str:
+    """Return a stable, filename-safe identifier for one language direction."""
+    def slug(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
-    dataset = load_translation_data(
-        cfg.eval_data,
-        cfg.run.seed
+    return f"{slug(direction.source_language)}_to_{slug(direction.target_language)}"
+
+
+def _write_direction_artifacts(cfg, direction, sources, predictions, references, scores):
+    """Persist predictions and metrics for one direction without overwriting peers."""
+    safe_model_name = cfg.model.name.replace("/", "__")
+    name = "_".join(
+        [
+            safe_model_name,
+            cfg.model.source,
+            cfg.prompt.strategy,
+            direction_id(direction),
+        ]
+    )
+    output_dir = Path(cfg.eval_data.model_output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prediction_path = output_dir / f"{name}.csv"
+    scores_path = output_dir / f"{name}.metrics.json"
+
+    with prediction_path.open(mode="w", encoding="utf-8", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["source", "prediction", "reference"])
+        writer.writerows(zip(sources, predictions, references))
+
+    with scores_path.open(mode="w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "direction": direction_id(direction),
+                "source_language": direction.source_language,
+                "target_language": direction.target_language,
+                "source_column": direction.source_column,
+                "target_column": direction.target_column,
+                "scores": scores,
+            },
+            file,
+            indent=2,
         )
 
-    tokenizer, model = load_model(cfg.model)
+    return prediction_path, scores_path
 
-    batch_size = cfg.eval_data.batch_size
-    retriever = None
+
+def _build_messages(cfg, sample, retriever):
+    source = sample["source"]
+    source_language = sample["source_language"]
+    target_language = sample["target_language"]
+
+    if cfg.prompt.strategy == "zero_shot":
+        return build_messages_zero(source, source_language, target_language)
+    if cfg.prompt.strategy == "few_shot":
+        examples = get_few_shot_examples(
+            cfg.prompt.examples,
+            source_language,
+            target_language,
+        )
+        return build_messages_3(examples, source_language, target_language, source)
     if cfg.prompt.strategy == "rag_few_shot":
-        retriever = TranslationRetriever(cfg.rag)
+        if retriever is None:
+            raise RuntimeError("Retriever is required for rag_few_shot strategy")
+        examples = retriever.retrieve(source, source_language, target_language)
+        return build_messages_rag(examples, source_language, target_language, source)
+    if cfg.prompt.strategy == "cot_translation":
+        return build_messages_cot_translation(source, source_language, target_language)
+    if cfg.prompt.strategy == "back_translation":
+        return build_messages_zero(source, source_language, target_language)
+    raise ValueError(f"Unknown prompt strategy: {cfg.prompt.strategy}")
 
-    for i in range(0, len(dataset), batch_size):
 
-        message_batch = []
-        batch_sources = []
-        batch_source_langs = []
-        batch_target_langs = []
+def _evaluate_direction(cfg, direction, model, tokenizer, retriever):
+    """Generate, score, and persist one configured direction."""
+    dataset = load_translation_data_for_direction(cfg.eval_data, direction, cfg.run.seed)
+    predictions = []
+    references = []
+    sources = []
+    batch_size = cfg.eval_data.batch_size
 
-        for j in range(i, min(i + batch_size, len(dataset))):
-
-            sample = dataset[j]
-
-            source = sample["source"]
-            target = sample["target"]
-            
-            source_languages.append(sample["source_language"])
-            target_languages.append(sample["target_language"])
-            batch_sources.append(source)
-            batch_source_langs.append(sample["source_language"])
-            batch_target_langs.append(sample["target_language"])
-
-            if cfg.prompt.strategy == "zero_shot":
-                messages = build_messages_zero(
-                    source,
-                    sample["source_language"],
-                    sample["target_language"]
-                )
-            elif cfg.prompt.strategy == "few_shot":
-                pair = cfg.prompt.direction
-                examples = cfg.prompt.examples[pair]
-                messages = build_messages_3(
-                    examples, 
-                    sample["source_language"], 
-                    sample["target_language"], 
-                    source
-                )
-
-            elif cfg.prompt.strategy == "rag_few_shot":
-                if retriever is None:
-                    raise RuntimeError("Retriever is required for rag_few_shot strategy")
-
-                examples = retriever.retrieve(
-                source_text=source,
-                source_lang=sample["source_language"],
-                target_lang=sample["target_language"],
-                )
-
-                messages = build_messages_rag(
-                    examples,
-                    sample["source_language"],
-                    sample["target_language"],
-                    source,
-                )
-
-            elif cfg.prompt.strategy == "cot_translation":
-                messages = build_messages_cot_translation(
-                    source,
-                    sample["source_language"],
-                    sample["target_language"]
-                )
-            elif cfg.prompt.strategy == "back_translation":
-                # forward pass uses a plain zero-shot prompt; the back-translation
-                # + consistency review happens after generation, below
-                messages = build_messages_zero(
-                    source,
-                    sample["source_language"],
-                    sample["target_language"]
-                )
-                
-            else:
-                raise ValueError(
-                    f"Unknown prompt strategy: {cfg.prompt.strategy}"
-                )
-
-            message_batch.append(messages)
-            references.append(target)
-
-        generated = translate(
-            model,
-            tokenizer,
-            message_batch,
-            cfg.model
-            )
+    for start in range(0, len(dataset), batch_size):
+        batch = dataset.select(range(start, min(start + batch_size, len(dataset))))
+        message_batch = [_build_messages(cfg, sample, retriever) for sample in batch]
+        generated = translate(model, tokenizer, message_batch, cfg.model)
 
         if cfg.prompt.strategy == "cot_translation":
-            generated = [extract_final_translation(g) for g in generated]
-
+            generated = [extract_final_translation(text) for text in generated]
         elif cfg.prompt.strategy == "back_translation":
-            # for back-translation, we need to do a second pass to check
-            # consistency of the generated translation with the original source
             reviewed = []
-
-            for source, src_lang, tgt_lang, candidate in zip(batch_sources, batch_source_langs, batch_target_langs, generated):
-               back_messages = build_messages_back_translation(candidate, src_lang, tgt_lang)
-               back_translation = translate(model, tokenizer, [back_messages], cfg.model)[0]
-
-               review_messages = build_messages_consistency_review(source, candidate, back_translation, src_lang, tgt_lang)
-               reviewed_translation = translate(model, tokenizer, [review_messages], cfg.model)[0]
-               reviewed.append(extract_final_translation(reviewed_translation))
-
+            for sample, candidate in zip(batch, generated):
+                back_translation = translate(
+                    model,
+                    tokenizer,
+                    [
+                        build_messages_back_translation(
+                            candidate,
+                            sample["source_language"],
+                            sample["target_language"],
+                        )
+                    ],
+                    cfg.model,
+                )[0]
+                review = translate(
+                    model,
+                    tokenizer,
+                    [
+                        build_messages_consistency_review(
+                            sample["source"],
+                            candidate,
+                            back_translation,
+                            sample["source_language"],
+                            sample["target_language"],
+                        )
+                    ],
+                    cfg.model,
+                )[0]
+                reviewed.append(extract_final_translation(review))
             generated = reviewed
 
-        prediction.extend(generated)
-        sources.extend(batch_sources)
-        print(f"Processed {min(i + batch_size, len(dataset))}/{len(dataset)}")
+        predictions.extend(generated)
+        print(generated)
+        sources.extend(batch["source"])
+        references.extend(batch["target"])
+        print(batch["target"])
+        print(
+            f"[{direction_id(direction)}] "
+            f"Processed {min(start + batch_size, len(dataset))}/{len(dataset)}"
+        )
 
-    safe_model_name = cfg.model.name.replace("/", "__")
-    output_file = safe_model_name + "_" + cfg.model.source + "_" + cfg.prompt.strategy + "_" + cfg.eval_data.directions[0].source_column + "_" + cfg.eval_data.directions[0].target_column
-    full_path = Path(cfg.eval_data.model_output) / f"{output_file}.csv"
-    full_path.parent.mkdir(parents=True, exist_ok=True)
+    scores = compute_all_metrics(sources, predictions, references)
+    prediction_path, scores_path = _write_direction_artifacts(
+        cfg,
+        direction,
+        sources,
+        predictions,
+        references,
+        scores,
+    )
+
+    name = direction_id(direction)
+    wandb.log(
+        {
+            f"eval/{name}/{metric}": value
+            for metric, value in scores.items()
+            if value is not None
+        }
+    )
+    return {
+        "direction": name,
+        "dataset_config": direction.dataset_config,
+        "source_column": direction.source_column,
+        "target_column": direction.target_column,
+        "source_language": direction.source_language,
+        "target_language": direction.target_language,
+        "scores": scores,
+        "prediction_file": str(prediction_path),
+        "scores_file": str(scores_path),
+    }
 
 
-    with open(full_path, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["source", "prediction", "reference"])
-        for src, pred, ref in zip(sources, prediction, references):
-            writer.writerow([src, pred, ref])
+def run_evaluation(cfg):
+    """Evaluate every configured direction, sharing one model instance across them."""
+    tokenizer, model = load_model(cfg.model)
+    retriever = (
+        TranslationRetriever(cfg.rag)
+        if cfg.prompt.strategy == "rag_few_shot"
+        else None
+    )
 
-    score = compute_all_metrics(sources, prediction, references)
-    
-    wandb.log({
-        f"eval/{name}": value
-        for name, value in score.items()
-        if value is not None
-    })
+    results = {}
+    for direction in cfg.eval_data.directions:
+        name = direction_id(direction)
+        if name in results:
+            raise ValueError(
+                f"Duplicate evaluation direction {name!r}; each direction must be unique."
+            )
+        results[name] = _evaluate_direction(cfg, direction, model, tokenizer, retriever)
 
-    return score
+    return results

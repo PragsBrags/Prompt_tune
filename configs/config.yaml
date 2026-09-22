@@ -3,15 +3,15 @@
 
 run:
   # Pipeline stage. Valid values: train | evaluate | index (build Chroma).
-  mode: train
+  mode: evaluate
   # Integer random seed for model, dataset sampling, and shuffling.
   seed: 42
-  # Writable destination for GGUF Q4_K_M export; used only by train.
-  output_dir: ../output/gguf_model/Qwen
-  # Writable destination for PEFT/LoRA adapter and tokenizer; used only by train.
-  adapter_dir: ../output/adapter/Qwen
-  # Writable destination for merged 16-bit model and tokenizer; use as model.model_path for merged evaluation.
-  merged_dir: ../output/merged/Qwen
+  # Writable destination for this model's GGUF Q4_K_M export; used only by train.
+  output_dir: ../output/gguf_model/${model.name}
+  # Writable destination for this model's PEFT/LoRA adapter and tokenizer; used only by train.
+  adapter_dir: ../output/adapter/${model.name}
+  # Writable destination for this model's merged 16-bit model and tokenizer.
+  merged_dir: ../output/merged/${model.name}
 
 wandb:
   # W&B project name used for run metadata, training logs, and evaluation metrics.
@@ -25,16 +25,22 @@ wandb:
 
 model:
   #Valid values: base (load `name` from Hugging Face) | merged (load local `model_path`).
-  source: base
+  source: merged
   # Hugging Face model ID for base mode and the model label in logs/output filenames.
+  # choices include : meta-llama/Llama-3.2-3B-Instruct
+  # Qwen/Qwen3.5-4B
+  # google/gemma-4-E4B
+  # google/gemma-4-E4B-it
+  # mistralai/Ministral-3-3B-Reasoning-2512
+  # mistralai/Ministral-3-3B-Instruct-2512
   name: Qwen/Qwen3.5-4B
-  # Local merged-model directory; required for source: merged and ignored for source: base.
-  model_path: ../output/merged/Qwen
+  # Local merged-model directory; automatically follows name and is ignored for source: base.
+  model_path: ${run.merged_dir}
   quantization:
     # Whether evaluation passes a BitsAndBytes quantization configuration. Valid values: true, false.
-    enabled: true
+    enabled: false
     # Whether that configuration loads 4-bit weights. Valid values: true, false; ignored if disabled.
-    load_in_4bit: true
+    load_in_4bit: false
   # Whether the tokenizer chat template enables model thinking. Valid values: true, false.
   thinking: false
   # Positive maximum sequence length for Unsloth/SFT training; lower values reduce memory use.
@@ -48,15 +54,53 @@ eval_data:
   shuffle: false
   # Positive number of prompts generated together; lower it if GPU memory is exhausted.
   batch_size: 8
-  # Writable directory for <safe-model-name>_<source>.csv; runner.py creates it when needed.
+  # Writable directory for per-direction prediction CSVs and metric JSON files; runner.py creates it when needed.
   model_output: ../output/eval_results
-  # One or more directed mappings. Each maps the same CSV to source/target records and concatenates them.
+  # Evaluation runs every direction below independently, producing one CSV, metric JSON,
+  # local evaluation log, and W&B metric namespace per direction.
   directions:
+    # Tamang to English mapping.
     - dataset_config: eval_split.csv
+      source_column: translation_en
+      target_column: translation_tmg
+      source_language: English
+      target_language: Tamang
+
+    # English to Tamang mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: translation_tmg
+      source_language: English
+      target_language: Tamang
+
+    # Nepali to Tamang mapping.
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_tmg
+      source_language: Nepali
+      target_language: Tamang
+
+    # Tamang to Nepali mapping.
+    - dataset_config: train_split.csv
       source_column: translation_tmg
-      target_column: translation_en
+      target_column: relevant_sentences
       source_language: Tamang
+      target_language: Nepali
+
+    # English to Nepali mapping.
+    - dataset_config: train_split.csv
+      source_column: translation_en
+      target_column: relevant_sentences
+      source_language: English
+      target_language: Nepali
+
+    # Nepali to English mapping.
+    - dataset_config: train_split.csv
+      source_column: relevant_sentences
+      target_column: translation_en
+      source_language: Nepali
       target_language: English
+
 
 train_data:
   # Training CSV. Every configured source_column and target_column must be an existing header.
@@ -116,10 +160,9 @@ train_data:
 prompt:
   # Evaluation strategy. Valid values: zero_shot, few_shot, rag_few_shot, cot_translation, back_translation.
   strategy: zero_shot
-  # Examples-map key used only by few_shot. Must exactly match a key under examples.
-  direction: en_np
   examples:
-    # English to Nepali demonstrations, selected by direction: en_np.
+    # Few-shot automatically selects this mapping from each evaluation row's language pair.
+    # English to Nepali demonstrations.
     en_np:
       # Example source text.
       - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
@@ -134,7 +177,7 @@ prompt:
         # Paired example target text.
         target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
 
-    # English to Tamang demonstrations; replace blank source/target values before choosing en_tmg.
+    # English to Tamang demonstrations.
     en_tmg:
       # Example source text.
       - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
@@ -149,7 +192,7 @@ prompt:
         # Paired example target text.
         target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
 
-    # Nepali to English demonstrations; replace blank source/target values before choosing np_en.
+    # Nepali to English demonstrations.
     np_en:
       # Example source text.
       - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
@@ -164,7 +207,7 @@ prompt:
         # Paired example target text.
         target: We are grateful to our viewers.
 
-    # Nepali to Tamang demonstrations; replace blank source/target values before choosing np_tmg.
+    # Nepali to Tamang demonstrations.
     np_tmg:
       # Example source text.
       - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
@@ -179,7 +222,7 @@ prompt:
         # Paired example target text.
         target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
 
-    # Tamang to Nepali demonstrations; replace blank source/target values before choosing tmg_np.
+    # Tamang to Nepali demonstrations.
     tmg_np:
       # Example source text.
       - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
@@ -194,7 +237,7 @@ prompt:
         # Paired example target text.
         target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
 
-    # Tamang to English demonstrations; replace blank source/target values before choosing tmg_en.
+    # Tamang to English demonstrations.
     tmg_en:
       # Example source text.
       - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
@@ -225,8 +268,8 @@ training:
   method: qlora
   # Compute SFT loss only on assistant completion tokens. Valid values: true, false.
   completion_loss: true
-  # SFTTrainer checkpoint/output directory, separate from the final run.* model export directories.
-  output_dir: ../output/adapter/Qwen
+  # SFTTrainer checkpoint/output directory; automatically follows name via run.adapter_dir.
+  output_dir: ${run.adapter_dir}
   learning_rate: 0.0001
   num_train_epochs: 1
   lora_rank: 16
