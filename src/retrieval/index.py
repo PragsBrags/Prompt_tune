@@ -5,6 +5,20 @@ from sentence_transformers import SentenceTransformer
 from data.data_loader import load_translation_data
 
 
+def ensure_index(cfg):
+    """Build the RAG index when it is absent, or rebuild it when requested."""
+    if cfg.rag.rebuild:
+        build_index(cfg)
+        return
+
+    client = chromadb.PersistentClient(path=to_absolute_path(cfg.rag.index_path))
+    try:
+        client.get_collection(cfg.rag.collection_name)
+    except (ValueError, chromadb.errors.NotFoundError):
+        print("RAG index not found; building it for evaluation.")
+        build_index(cfg)
+
+
 def build_index(cfg):
     """
     Index every directed pair defined in cfg.train_data.directions.

@@ -1,19 +1,14 @@
 import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
+from pathlib import Path
 from transformers import set_seed
 from tracking.experiment import ExpLogger
 
 
 VALID_RUN_MODES = {"evaluate", "train", "index"}
 VALID_MODEL_SOURCES = {"base", "merged"}
-VALID_PROMPT_STRATEGIES = {
-    "zero_shot",
-    "few_shot",
-    "rag_few_shot",
-    "cot_translation",
-    "back_translation",
-}
+CONFIG_DIR = Path(__file__).resolve().parent.parent / "configs"
 
 
 def validate_config(cfg: DictConfig) -> None:
@@ -28,16 +23,12 @@ def validate_config(cfg: DictConfig) -> None:
             f"Unsupported model.source {cfg.model.source!r}. "
             f"Expected one of: {sorted(VALID_MODEL_SOURCES)}"
         )
-    if cfg.prompt.strategy not in VALID_PROMPT_STRATEGIES:
-        raise ValueError(
-            f"Unsupported prompt.strategy {cfg.prompt.strategy!r}. "
-            f"Expected one of: {sorted(VALID_PROMPT_STRATEGIES)}"
-        )
-    if cfg.run.mode == "evaluate" and not cfg.eval_data.directions:
-        raise ValueError("Evaluation requires at least one eval_data.directions entry.")
-    if cfg.run.mode == "evaluate" and cfg.prompt.strategy == "few_shot":
-        # Validate every configured direction before model loading so a missing
-        # demonstration map cannot leave a multi-direction run half-finished.
+    if cfg.run.mode in {"evaluate", "train"}:
+        if not cfg.eval_data.directions:
+            raise ValueError("Evaluation requires at least one eval_data.directions entry.")
+        # Few-shot is always part of automatic evaluation. Validate every
+        # direction before training or model loading so a missing map cannot
+        # leave the pipeline half-finished.
         from prompting.shot_prompts import get_few_shot_examples
 
         for direction in cfg.eval_data.directions:
@@ -47,9 +38,44 @@ def validate_config(cfg: DictConfig) -> None:
                 direction.target_language,
             )
 
+
+def log_evaluation_results(logruns, cfg, results) -> None:
+    """Write one run record and per-direction records for every strategy."""
+    evaluation_directions = [
+        {
+            "strategy": strategy,
+            "dataset_config": result["dataset_config"],
+            "direction": result["direction"],
+        }
+        for strategy, strategy_results in results.items()
+        for result in strategy_results.values()
+    ]
+    logruns.log_run(
+        cfg.model.name,
+        "evaluate",
+        cfg.eval_data.dataset_name,
+        cfg.run.seed,
+        evaluation_directions,
+        None,
+    )
+
+    for strategy, strategy_results in results.items():
+        for result in strategy_results.values():
+            logruns.log_eval(
+                cfg.model.name,
+                result["source_column"],
+                result["target_column"],
+                strategy,
+                cfg.model.source,
+                result["scores"],
+                direction_name=result["direction"],
+                prediction_file=result["prediction_file"],
+                scores_file=result["scores_file"],
+            )
+
 @hydra.main(
     version_base=None,
-    config_path="../configs",
+    config_path=str(CONFIG_DIR),
     config_name="config",
 )
 def main(cfg: DictConfig):
@@ -65,7 +91,7 @@ def main(cfg: DictConfig):
         tags=[
             cfg.model.source,
             cfg.training.method,
-            cfg.prompt.strategy,
+            "all_prompt_strategies",
         ],
     )
     
@@ -77,33 +103,7 @@ def main(cfg: DictConfig):
             set_seed(cfg.run.seed, deterministic=True)
             results = run_evaluation(cfg)
 
-            logruns.log_run(
-                cfg.model.name,
-                cfg.run.mode,
-                cfg.eval_data.dataset_name,
-                cfg.run.seed,
-                [
-                    {
-                        "dataset_config": result["dataset_config"],
-                        "direction": result["direction"],
-                    }
-                    for result in results.values()
-                ],
-                None,
-                )
-
-            for result in results.values():
-                logruns.log_eval(
-                    cfg.model.name,
-                    result["source_column"],
-                    result["target_column"],
-                    cfg.prompt.strategy,
-                    cfg.model.source,
-                    result["scores"],
-                    direction_name=result["direction"],
-                    prediction_file=result["prediction_file"],
-                    scores_file=result["scores_file"],
-                )
+            log_evaluation_results(logruns, cfg, results)
 
             print(results)
 
@@ -130,6 +130,31 @@ def main(cfg: DictConfig):
             save_model(model, tokenizer, cfg.run)
 
             print("training complete and model saved")
+
+            # The evaluation loader must read the exported merged model, not
+            # the base model that was used to start fine-tuning. Release the
+            # training model first so evaluation can reclaim GPU memory.
+            del model, tokenizer
+            import gc
+            import torch
+
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            from evaluation.runner import run_evaluation
+
+            evaluation_cfg = OmegaConf.create(
+                OmegaConf.to_container(cfg, resolve=True)
+            )
+            evaluation_cfg.model.source = "merged"
+            results = run_evaluation(evaluation_cfg)
+            log_evaluation_results(
+                ExpLogger("run_experiments"),
+                evaluation_cfg,
+                results,
+            )
+            print("fine-tuned model evaluation complete")
 
         elif cfg.run.mode == "index":
             from retrieval.index import build_index

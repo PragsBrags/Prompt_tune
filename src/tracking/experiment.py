@@ -65,9 +65,10 @@ class ExpLogger:
         }
 
         safe_direction = (direction_name or "all").replace("/", "_").replace("\\", "_")
+        safe_technique = technique.replace("/", "_").replace("\\", "_")
         filepath = os.path.join(
             self.log_dir,
-            f"eval{eval_record['run_id']}_{safe_direction}.json",
+            f"eval{eval_record['run_id']}_{safe_technique}_{safe_direction}.json",
         )
         with open(filepath, "w") as f:
             json.dump(eval_record, f, indent = 4)

@@ -54,8 +54,21 @@ Hydra loads `../configs/config.yaml`. Override any field for one command without
 
 ```powershell
 python cli.py run.mode=train model.source=base wandb.mode=offline
-python cli.py run.mode=evaluate prompt.strategy=rag_few_shot
+python cli.py run.mode=evaluate model.source=merged
 ```
+
+## Model-specific launchers
+
+These root-level files fix only `model.name`; every other setting still comes from `configs/config.yaml`, including `run.mode`, `model.source`, data, training, RAG, and W&B options. Model-specific output paths continue to derive from the fixed name automatically.
+
+```powershell
+python run_llama_3_2_3b_instruct.py
+python run_qwen_3_5_4b.py
+python run_gemma_4_e4b_it.py
+python run_ministral_3_3b_instruct.py
+```
+
+The launchers run `src/cli.py` from its expected directory. Use `src/cli.py` directly when you want the model name itself to come entirely from the configuration.
 
 ## Data format and preparation
 
@@ -83,20 +96,20 @@ The LoRA rank, alpha, dropout, optimization parameters, and trainer output path 
 - merged 16-bit model and tokenizer: `run.merged_dir`;
 - Q4_K_M GGUF export: `run.output_dir`.
 
-`training.output_dir` belongs to `SFTTrainer` and is separate from final export directories. The implementation always creates a LoRA adapter; `training.method` is currently a descriptive W&B tag, not an algorithm switch.
+`training.output_dir` belongs to `SFTTrainer` and shares the model-specific adapter directory. The implementation always creates a LoRA adapter; `training.method` is currently a descriptive W&B tag, not an algorithm switch. Training then automatically releases the training model and evaluates its newly saved merged export with every prompting strategy. No second command or configuration change is needed.
 
 ```powershell
 cd src
 python cli.py run.mode=train model.source=base wandb.mode=offline
 ```
 
-To evaluate the resulting merged export, use `model.source=merged`. `model.model_path` automatically resolves to that model's `run.merged_dir`.
+To evaluate an existing merged export directly, use `model.source=merged`. `model.model_path` automatically resolves to that model's `run.merged_dir`.
 
 ### Index
 
 Index mode loads the concatenated training directions, embeds each source as `passage: <source>`, and upserts it into a persistent Chroma collection. Metadata stores the paired target and both language labels. RAG later filters candidates to the requested source/target language pair.
 
-Build an index before using `rag_few_shot`:
+The evaluator creates the index automatically when it is missing. You can still build or refresh it separately:
 
 ```powershell
 cd src
@@ -109,7 +122,7 @@ python cli.py run.mode=index rag.rebuild=true
 
 Evaluation loads the selected model, builds one prompt per normalized evaluation row, generates in batches, writes a CSV, computes metrics, and logs results. Generation is deterministic (`do_sample=False`) and currently limited to 128 new tokens. `model.max_seq_length` controls the training path; evaluation uses tokenizer truncation and the generator's fixed output limit.
 
-Available `prompt.strategy` values:
+Every evaluation automatically runs all of these strategies; `prompt.strategy` is not a user setting:
 
 | Strategy | What it does |
 | --- | --- |
@@ -119,7 +132,7 @@ Available `prompt.strategy` values:
 | `cot_translation` | Requests visible linguistic analysis and extracts the final `Translation:` line. |
 | `back_translation` | Generates forward and reverse translations, then asks the model to review/correct the forward output. |
 
-`few_shot` automatically maps English, Nepali, and Tamang pairs to the corresponding `en_np`, `en_tmg`, `np_en`, `np_tmg`, `tmg_np`, or `tmg_en` examples entry. No prompt-direction override is needed. Every configured mapping must be populated before using the strategy.
+`few_shot` automatically maps English, Nepali, and Tamang pairs to the corresponding `en_np`, `en_tmg`, `np_en`, `np_tmg`, `tmg_np`, or `tmg_en` examples entry. No prompt-direction override is needed. Every configured mapping must be populated because few-shot evaluation is always included.
 
 ```powershell
 cd src
@@ -148,7 +161,7 @@ source,prediction,reference
 <input sentence>,<model translation>,<reference translation>
 ```
 
-The evaluator writes a prediction CSV and a score JSON for every direction, and logs each metric to a matching W&B namespace such as `eval/tamang_to_english/bleu`. It also writes one local `evalrun_..._<direction>.json` log per direction. A repeat run with the same model, strategy, and direction overwrites only that direction's prediction and score artifacts. The evaluator attempts BLEU, METEOR, TER, chrF, chrF++, COMET, and multilingual BERTScore independently; a metric error is recorded as `null` and does not prevent the others from running.
+The evaluator writes a prediction CSV and a score JSON for every strategy and direction, and logs each metric to a matching W&B namespace such as `eval/zero_shot/tamang_to_english/bleu`. It also writes one local `evalrun_..._<strategy>_<direction>.json` log per strategy and direction. A repeat run with the same model, strategy, and direction overwrites only that strategy-direction pair's prediction and score artifacts. The evaluator attempts BLEU, METEOR, TER, chrF, chrF++, COMET, and multilingual BERTScore independently; a metric error is recorded as `null` and does not prevent the others from running.
 
 ## Tracking and outputs
 
@@ -157,26 +170,27 @@ Every mode initializes W&B with the resolved Hydra configuration and tags for mo
 With the recommended `src` working directory, local JSON logs are written to:
 
 - `src/train_experiments/run_<timestamp>.json` for a training run, including the training configuration under `lora_parameters`;
-- `src/run_experiments/run_<timestamp>.json` for an evaluation run;
-- `src/run_experiments/evalrun_<timestamp>_<direction>.json` for each direction's columns, strategy, model source, artifact paths, and scores.
+- `src/run_experiments/run_<timestamp>.json` for an evaluation run, including evaluation automatically started after training;
+- `src/run_experiments/evalrun_<timestamp>_<strategy>_<direction>.json` for each strategy and direction's columns, model source, artifact paths, and scores.
 
 An error during model loading or generation prevents artifacts for the affected direction. Individual metric failures are caught and recorded as `null`, so they do not prevent that direction's CSV and score JSON from being saved.
 
 ## Configuration relationships
 
-- `model.source: base` loads `model.name`; `model.source: merged` loads the model-specific `model.model_path`.
+- `model.source: base` loads `model.name`; `model.source: merged` loads the model-specific `model.model_path`. Train mode always evaluates the just-saved merged export after fine-tuning.
+- Every evaluation runs zero-shot, few-shot, RAG few-shot, chain-of-thought translation, and back-translation automatically.
 - Changing `model.name` automatically updates `run.output_dir`, `run.adapter_dir`, `run.merged_dir`, `model.model_path`, and `training.output_dir`.
 - Data-column names must match CSV headers exactly.
 - `rag.top_k` must be no greater than `rag.candidate_k`.
 - Use the same RAG path, collection name, and embedding model for index and retrieval.
-- Keep artifact directories writable and separate if trainer checkpoints, adapters, merged models, GGUF exports, and prediction files should not mix.
+- Keep artifact directories writable. The trainer shares the adapter directory; merged models, GGUF exports, and prediction files use their own configured locations.
 
 ## Troubleshooting
 
 | Symptom | What to check |
 | --- | --- |
 | Dataset path not found | Run from `src`, or update every relative path for your current working directory. |
-| RAG collection not found | Run index mode first and confirm the RAG path/name/embedding settings match. |
+| RAG collection not found | The evaluator builds it automatically; confirm the RAG path/name/embedding settings and embedding-model download access. |
 | RAG yields too few examples | Verify matching language-label pairs were indexed; reduce `top_k` or `candidate_k` if needed. |
 | CUDA out of memory | Lower training/evaluation batch size, training sequence length, or LoRA rank; enable 4-bit evaluation loading. |
 | Prediction CSV is absent | Confirm `run.mode=evaluate`; errors before all generation batches finish prevent the write. |

@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 import wandb
+from omegaconf import OmegaConf
 
 from data.data_loader import load_translation_data_for_direction
 from evaluation.metrics import compute_all_metrics
@@ -20,6 +21,16 @@ from prompting.shot_prompts import (
     get_few_shot_examples,
 )
 from retrieval.retriever import TranslationRetriever
+from retrieval.index import ensure_index
+
+
+PROMPT_STRATEGIES = (
+    "zero_shot",
+    "few_shot",
+    "rag_few_shot",
+    "cot_translation",
+    "back_translation",
+)
 
 
 def direction_id(direction) -> str:
@@ -54,6 +65,7 @@ def _write_direction_artifacts(cfg, direction, sources, predictions, references,
     with scores_path.open(mode="w", encoding="utf-8") as file:
         json.dump(
             {
+                "strategy": cfg.prompt.strategy,
                 "direction": direction_id(direction),
                 "source_language": direction.source_language,
                 "target_language": direction.target_language,
@@ -164,7 +176,7 @@ def _evaluate_direction(cfg, direction, model, tokenizer, retriever):
     name = direction_id(direction)
     wandb.log(
         {
-            f"eval/{name}/{metric}": value
+            f"eval/{cfg.prompt.strategy}/{name}/{metric}": value
             for metric, value in scores.items()
             if value is not None
         }
@@ -182,22 +194,42 @@ def _evaluate_direction(cfg, direction, model, tokenizer, retriever):
     }
 
 
+def _strategy_config(cfg, strategy):
+    """Return a resolved config copy for one automatic prompting-strategy pass."""
+    strategy_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+    strategy_cfg.prompt.strategy = strategy
+    return strategy_cfg
+
+
 def run_evaluation(cfg):
-    """Evaluate every configured direction, sharing one model instance across them."""
+    """Evaluate every prompting strategy and direction using one loaded model."""
     tokenizer, model = load_model(cfg.model)
-    retriever = (
-        TranslationRetriever(cfg.rag)
-        if cfg.prompt.strategy == "rag_few_shot"
-        else None
-    )
 
     results = {}
-    for direction in cfg.eval_data.directions:
-        name = direction_id(direction)
-        if name in results:
-            raise ValueError(
-                f"Duplicate evaluation direction {name!r}; each direction must be unique."
+    for strategy in PROMPT_STRATEGIES:
+        strategy_cfg = _strategy_config(cfg, strategy)
+        if strategy == "rag_few_shot":
+            ensure_index(strategy_cfg)
+            retriever = TranslationRetriever(strategy_cfg.rag)
+        else:
+            retriever = None
+
+        strategy_results = {}
+        for direction in strategy_cfg.eval_data.directions:
+            name = direction_id(direction)
+            if name in strategy_results:
+                raise ValueError(
+                    f"Duplicate evaluation direction {name!r}; each direction must be unique."
+                )
+            result = _evaluate_direction(
+                strategy_cfg,
+                direction,
+                model,
+                tokenizer,
+                retriever,
             )
-        results[name] = _evaluate_direction(cfg, direction, model, tokenizer, retriever)
+            result["strategy"] = strategy
+            strategy_results[name] = result
+        results[strategy] = strategy_results
 
     return results
