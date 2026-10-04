@@ -146,7 +146,7 @@ def build_messages_cot_translation(
                 f"{source_text}\n\n"
                 "Follow this exact format:\n"
                 "1. Tense: <identify the tense>\n"
-                "2. Polarity: <affirmative/negative>\n"
+                "2. Polarity: <negative>\n"
                 "3. Sentence type: <declarative/interrogative/imperative/etc.>\n"
                 "4. Subject-object structure: <briefly describe>\n"
                 "5. Key terms: <list 2-4 important words/phrases and their "
