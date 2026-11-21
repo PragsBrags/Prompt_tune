@@ -10,6 +10,8 @@ def translate(model,tokenizer,message_batch,cfg_model):
         )
         for messages in message_batch
     ]
+
+    print(prompts)
     
     inputs = tokenizer(
         text = prompts,

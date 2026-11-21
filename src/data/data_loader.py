@@ -28,6 +28,10 @@ def _load_translation_dataset(dataset_cfg, dataset_path, seed, directions=None):
             },
             remove_columns=ds.column_names,
         )
+        ds = ds.filter(
+        lambda r: isinstance(r["source"], str) and r["source"].strip()
+        and isinstance(r["target"], str) and r["target"].strip()
+    )
         datasets.append(ds)
 
     dataset = concatenate_datasets(datasets)
