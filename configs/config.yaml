@@ -7,33 +7,35 @@ run:
   # Integer random seed for model, dataset sampling, and shuffling.
   seed: 42
   # Writable destination for this model's GGUF Q4_K_M export; used only by train.
-  output_dir: ../output/gguf_model/${model.name}
+  output_dir: output/gguf_model/v2/${model.name}
   # Writable destination for this model's PEFT/LoRA adapter and tokenizer; used only by train.
-  adapter_dir: ../output/adapter/${model.name}
+  adapter_dir: output/adapter/v2/${model.name}
   # Writable destination for this model's merged 16-bit model and tokenizer.
-  merged_dir: ../output/merged/${model.name}
+  merged_dir: output/merged/v2/${model.name}
 
 wandb:
   # W&B project name used for run metadata, training logs, and evaluation metrics.
-  project: ilprl-tamang-translation
+  project: mt-team (ne-en-tmg)
   # W&B user/team slug, or null to use the authenticated user's default entity.
   entity: null
+  run_name: "llama-3.2-3B-instruct-zero-shot-test-scores"
   # W&B mode. Valid values: online (upload), offline (store locally), disabled (no W&B run).
   mode: online
   # Optional W&B grouping label for related runs.
-  group: qwen3.5-4b-qlora
+  group: Llama-3.2-3B-Instruct-64-qlora
 
 model:
   #Valid values: base (load `name` from Hugging Face) | merged (load local `model_path`).
-  source: merged
+  source: base
   # Hugging Face model ID for base mode and the model label in logs/output filenames.
   # choices include : meta-llama/Llama-3.2-3B-Instruct
-  # Qwen/Qwen3.5-4B
+  # meta-llama/Llama-3.2-3B-Instruct
   # google/gemma-4-E4B
   # google/gemma-4-E4B-it
   # mistralai/Ministral-3-3B-Reasoning-2512
-  # mistralai/Ministral-3-3B-Instruct-2512
-  name: Qwen/Qwen3.5-4B
+  # meta-llama/Llama-3.2-3B-Instruct
+  family: llama3
+  name: meta-llama/Llama-3.2-3B-Instruct
   # Local merged-model directory; automatically follows name and is ignored for source: base.
   model_path: ${run.merged_dir}
   quantization:
@@ -44,18 +46,18 @@ model:
   # Whether the tokenizer chat template enables model thinking. Valid values: true, false.
   thinking: false
   # Positive maximum sequence length for Unsloth/SFT training; lower values reduce memory use.
-  max_seq_length: 256
+  max_seq_length: 512
 
 eval_data:
-  dataset_name: ../dataset/eval_split.csv
+  dataset_name: dataset/eval_split.csv
   # Datasets split for a local CSV. Use train for this CSV builder configuration.
   split: train
   revision: main
   shuffle: false
   # Positive number of prompts generated together; lower it if GPU memory is exhausted.
-  batch_size: 8
+  batch_size: 32
   # Writable directory for per-direction prediction CSVs and metric JSON files; runner.py creates it when needed.
-  model_output: ../output/eval_results
+  model_output: output/eval_results
   # Evaluation runs every direction below independently, producing one CSV, metric JSON,
   # local evaluation log, and W&B metric namespace per direction.
   directions:
@@ -104,10 +106,10 @@ eval_data:
 
 train_data:
   # Training CSV. Every configured source_column and target_column must be an existing header.
-  dataset_name: ../dataset/train_split.csv
+  dataset_name: dataset/train_split.csv
   # Held-out validation CSV. It must have the same columns used by directions below;
   # the training loader applies these same direction mappings to this file.
-  valid_name: ../dataset/valid_split.csv
+  valid_name: dataset/valid_split.csv
   # Datasets split for a local CSV. Use train for this CSV builder configuration.
   split: train
   revision: null
@@ -163,98 +165,81 @@ prompt:
   examples:
     # Few-shot automatically selects this mapping from each evaluation row's language pair.
     # English to Nepali demonstrations.
-    en_np:
-      # Example source text.
-      - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
-        # Paired example target text.
-        target: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
-      # Example source text.
-      - source: This school is one of the oldest schools in the district.
-        # Paired example target text.
-        target: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
-      # Example source text.
-      - source: We are grateful to our viewers.
-        # Paired example target text.
-        target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
+    useeren_np:
+      - source: The bridge built using new technology in Kathmandu's electricity market does not have attractive lights installed.
+        target: काठमाडौँको बिजुली बजारमा नयाँ प्रविधिको प्रयोगगरी निर्माण गरिएको पुलमा आकर्षक बत्ती जडान गरिएको छैन।
+      - source: The authorities took control of the government office after it was discovered that they were taking bribes from service recipients on the first day of its opening.
+        target: सरकारी कार्यालय खुलेको पहिलो दिन नै उनीहरूले सेवाग्राहीसँग घुस रकम लिएको फेला परेपछि अख्तियारले नियन्त्रणमा लिएको थियो।
+      - source: Deepak says that the water from the reservoir has also made it easier to grow vegetables in winter.
+        target: जलाशयको पानीले हिउँदमा तरकारी खेती गर्न पनि सजिलो भएको दीपकको भनाइ छ।
+      - source: The bank provided credit cards to 2 dozen farmers on the first day.
+        target: बैंकले पहिलो दिन २ दर्जन किसानलाई क्रेडिट कार्ड उपलब्ध गराएको छ।
+      - source: Then we start from grade one.
+        target: त्यसपछि कक्षा एकदेखि सुरु गर्छौँ।
 
-    # English to Tamang demonstrations.
     en_tmg:
-      # Example source text.
-      - source: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
-        # Paired example target text.
-        target: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
-      # Example source text.
-      - source: This school is one of the oldest schools in the district.
-        # Paired example target text.
-        target: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
-      # Example source text.
-      - source: We are grateful to our viewers.
-        # Paired example target text.
-        target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
+      - source: The bridge built using new technology in Kathmandu's electricity market does not have attractive lights installed.
+        target: याम्बुला बिजुली बजाररि छार प्रविधिला प्रयोग लासि स्हेङ्बा पुलरि आकर्षक बत्ती थुइबाला आरे।
+      - source: The authorities took control of the government office after it was discovered that they were taking bribes from service recipients on the first day of its opening.
+        target: सरकारी गेदिम ठोङ्बाला गिक्छा रे नोन थेनिकादेसे साप्तोकिन्बाग्याम घुस टाङ्गा किन्बा स्याप्पालिच्छा अख्तियारसे नियन्त्रणरि किन्बा मुबा।
+      - source: Deepak says that the water from the reservoir has also made it easier to grow vegetables in winter.
+        target: ग्योइलिङला क्यूइसे सेर्खारि खु सास्हिङ लाबारि नोन देबा ताबा दीपकला पाङ्बा मुला।
+      - source: The bank provided credit cards to 2 dozen farmers on the first day.
+        target: ब्याङ्कसे गिक्छा रे दर्जन न्हि सानाम्पादा क्रेडिट कार्ड पिन्बाला मुला।
+      - source: Then we start from grade one.
+        target: थेलिच्छा डा गिकहेन्से चु:सेला मुला।
 
-    # Nepali to English demonstrations.
     np_en:
-      # Example source text.
-      - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
-        # Paired example target text.
-        target: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
-      # Example source text.
-      - source: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
-        # Paired example target text.
-        target: This school is one of the oldest schools in the district.
-      # Example source text.
-      - source: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
-        # Paired example target text.
-        target: We are grateful to our viewers.
+      - source: काठमाडौँको बिजुली बजारमा नयाँ प्रविधिको प्रयोगगरी निर्माण गरिएको पुलमा आकर्षक बत्ती जडान गरिएको छैन।
+        target: The bridge built using new technology in Kathmandu's electricity market does not have attractive lights installed.
+      - source: सरकारी कार्यालय खुलेको पहिलो दिन नै उनीहरूले सेवाग्राहीसँग घुस रकम लिएको फेला परेपछि अख्तियारले नियन्त्रणमा लिएको थियो।
+        target: The authorities took control of the government office after it was discovered that they were taking bribes from service recipients on the first day of its opening.
+      - source: जलाशयको पानीले हिउँदमा तरकारी खेती गर्न पनि सजिलो भएको दीपकको भनाइ छ।
+        target: Deepak says that the water from the reservoir has also made it easier to grow vegetables in winter.
+      - source: बैंकले पहिलो दिन २ दर्जन किसानलाई क्रेडिट कार्ड उपलब्ध गराएको छ।
+        target: The bank provided credit cards to 2 dozen farmers on the first day.
+      - source: त्यसपछि कक्षा एकदेखि सुरु गर्छौँ।
+        target: Then we start from grade one.
 
-    # Nepali to Tamang demonstrations.
     np_tmg:
-      # Example source text.
-      - source: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
-        # Paired example target text.
-        target: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
-      # Example source text.
-      - source: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
-        # Paired example target text.
-        target: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
-      # Example source text.
-      - source: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
-        # Paired example target text.
-        target: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
+      - source: काठमाडौँको बिजुली बजारमा नयाँ प्रविधिको प्रयोगगरी निर्माण गरिएको पुलमा आकर्षक बत्ती जडान गरिएको छैन।
+        target: याम्बुला बिजुली बजाररि छार प्रविधिला प्रयोग लासि स्हेङ्बा पुलरि आकर्षक बत्ती थुइबाला आरे।
+      - source: सरकारी कार्यालय खुलेको पहिलो दिन नै उनीहरूले सेवाग्राहीसँग घुस रकम लिएको फेला परेपछि अख्तियारले नियन्त्रणमा लिएको थियो।
+        target: सरकारी गेदिम ठोङ्बाला गिक्छा रे नोन थेनिकादेसे साप्तोकिन्बाग्याम घुस टाङ्गा किन्बा स्याप्पालिच्छा अख्तियारसे नियन्त्रणरि किन्बा मुबा।
+      - source: जलाशयको पानीले हिउँदमा तरकारी खेती गर्न पनि सजिलो भएको दीपकको भनाइ छ।
+        target: ग्योइलिङला क्यूइसे सेर्खारि खु सास्हिङ लाबारि नोन देबा ताबा दीपकला पाङ्बा मुला।
+      - source: बैंकले पहिलो दिन २ दर्जन किसानलाई क्रेडिट कार्ड उपलब्ध गराएको छ।
+        target: ब्याङ्कसे गिक्छा रे दर्जन न्हि सानाम्पादा क्रेडिट कार्ड पिन्बाला मुला।
+      - source: त्यसपछि कक्षा एकदेखि सुरु गर्छौँ।
+        target: थेलिच्छा डा गिकहेन्से चु:सेला मुला।
 
-    # Tamang to Nepali demonstrations.
     tmg_np:
-      # Example source text.
-      - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
-        # Paired example target text.
-        target: कृषि मन्त्रालय सम्हालेको लामो अवधिसम्म गुमनाम रहेका मन्त्री भुसालले यो अवधिमा आफूले ऐतिहासिक काम गर्न सफल भएको दाबी गरेका छन्।
-      # Example source text.
-      - source: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
-        # Paired example target text.
-        target: यो विद्यालय जिल्लाकै पुरानो विद्यालय मध्यको एक हो।
-      # Example source text.
-      - source: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
-        # Paired example target text.
-        target: हामी हजुर दर्शक श्रोताहरू प्रति कृतज्ञ छौँ।
+      - source: याम्बुला बिजुली बजाररि छार प्रविधिला प्रयोग लासि स्हेङ्बा पुलरि आकर्षक बत्ती थुइबाला आरे।
+        target: काठमाडौँको बिजुली बजारमा नयाँ प्रविधिको प्रयोगगरी निर्माण गरिएको पुलमा आकर्षक बत्ती जडान गरिएको छैन।
+      - source: सरकारी गेदिम ठोङ्बाला गिक्छा रे नोन थेनिकादेसे साप्तोकिन्बाग्याम घुस टाङ्गा किन्बा स्याप्पालिच्छा अख्तियारसे नियन्त्रणरि किन्बा मुबा।
+        target: सरकारी कार्यालय खुलेको पहिलो दिन नै उनीहरूले सेवाग्राहीसँग घुस रकम लिएको फेला परेपछि अख्तियारले नियन्त्रणमा लिएको थियो।
+      - source: ग्योइलिङला क्यूइसे सेर्खारि खु सास्हिङ लाबारि नोन देबा ताबा दीपकला पाङ्बा मुला।
+        target: जलाशयको पानीले हिउँदमा तरकारी खेती गर्न पनि सजिलो भएको दीपकको भनाइ छ।
+      - source: ब्याङ्कसे गिक्छा रे दर्जन न्हि सानाम्पादा क्रेडिट कार्ड पिन्बाला मुला।
+        target: बैंकले पहिलो दिन २ दर्जन किसानलाई क्रेडिट कार्ड उपलब्ध गराएको छ।
+      - source: थेलिच्छा डा गिकहेन्से चु:सेला मुला।
+        target: त्यसपछि कक्षा एकदेखि सुरु गर्छौँ।
 
-    # Tamang to English demonstrations.
     tmg_en:
-      # Example source text.
-      - source: सानाम ब्लोनखाङ किन्बा ह्रेङ्बा दुइदोःना गुमनाम मुबा ब्लोन भुसालसे चु दुइरि ह्राङसे दोङरापकि गे लाबारि स्हाङ्बा ताबा दाबी लाबा मुला।
-        # Paired example target text.
-        target: Minister Bhusal, who remained anonymous for a long time while holding the Ministry of Agriculture, has claimed that he has succeeded in accomplishing historic work during this period.
-      # Example source text.
-      - source: चु लोप्खाङ जोङ्लान खेःबा लोप्खाङ गुङ्ला गिक्खे हिन्ना।
-        # Paired example target text.
-        target: This school is one of the oldest schools in the district.
-      # Example source text.
-      - source: ङानि ए दर्शक श्रोताकादेथोरि कृतज्ञ मुला।
-        # Paired example target text.
-        target: We are grateful to our viewers.
+      - source: याम्बुला बिजुली बजाररि छार प्रविधिला प्रयोग लासि स्हेङ्बा पुलरि आकर्षक बत्ती थुइबाला आरे।
+        target: The bridge built using new technology in Kathmandu's electricity market does not have attractive lights installed.
+      - source: सरकारी गेदिम ठोङ्बाला गिक्छा रे नोन थेनिकादेसे साप्तोकिन्बाग्याम घुस टाङ्गा किन्बा स्याप्पालिच्छा अख्तियारसे नियन्त्रणरि किन्बा मुबा।
+        target: The authorities took control of the government office after it was discovered that they were taking bribes from service recipients on the first day of its opening.
+      - source: ग्योइलिङला क्यूइसे सेर्खारि खु सास्हिङ लाबारि नोन देबा ताबा दीपकला पाङ्बा मुला।
+        target: Deepak says that the water from the reservoir has also made it easier to grow vegetables in winter.
+      - source: ब्याङ्कसे गिक्छा रे दर्जन न्हि सानाम्पादा क्रेडिट कार्ड पिन्बाला मुला।
+        target: The bank provided credit cards to 2 dozen farmers on the first day.
+      - source: थेलिच्छा डा गिकहेन्से चु:सेला मुला।
+        target: Then we start from grade one.
 
 rag:
   # Persistent Chroma directory. Indexing and rag_few_shot evaluation must use exactly the same path.
-  index_path: ../embeddging_index
+  index_path: embeddging_index
   # Delete the named collection before indexing. Valid values: true, false; use true after corpus/model changes.
   rebuild: false
   embedding_model: sentence-transformers/all-MiniLM-L6-v2
@@ -270,15 +255,15 @@ training:
   completion_loss: true
   # SFTTrainer checkpoint/output directory; automatically follows name via run.adapter_dir.
   output_dir: ${run.adapter_dir}
-  learning_rate: 0.0001
+  learning_rate: 1e-4
   num_train_epochs: 1
   lora_rank: 16
   lora_alpha: 32
   lora_dropout: 0.05
-  batch_size: 2
-  gradient_accumulation_steps: 4
-  warmup_steps: 50
-  logging_steps: 10
-  eval_steps: 10
+  batch_size: 32
+  gradient_accumulation_steps: 2
+  warmup_steps: 100
+  logging_steps: 100
+  eval_steps: 250
   # SFTConfig/Transformers optimizer. Common valid values: adamw_8bit, adamw_torch, adamw_torch_fused, paged_adamw_8bit.
   optim: adamw_8bit

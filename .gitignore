@@ -9,3 +9,6 @@ embeddging_index/
 venvn
 .venv/
 venv/
+.env/
+dataset/
+src/.env
